@@ -2,18 +2,17 @@ package applications;
 
 import java.util.ArrayList;
 
-
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
+import java.util.Set;
 
 import core.Application;
 import core.DTNHost;
 import core.Message;
 import core.Settings;
 import core.SimClock;
-import fragmentation.Fragment;
 import fragmentation.SADFragmentation;
 import report.StreamAppReporter;
 import routing.TVProphetRouterV2;
@@ -24,23 +23,23 @@ public class BroadcasterAppV3 extends StreamingApplication{
 
 	public static final String STREAM_TIME = "streamTime";
 
-	
 	private Stream 	stream;
 	private SADFragmentation sadf;
 	
 	private boolean broadcasted=false;
-	private double sTime;
-	private String 	streamID;
+	private static double sTime;
 	
+	private double timeLastStream;
 	private double lastChokeInterval = 0;
 	private double lastOptimalInterval =0;
-	private int noOfChunksPerFrag=0; //default=0, no fragmentation
-	private double byterate; //bitrate in bytes
-	private int durationPerChunk;
+	private static int noOfChunksPerFrag=0; //default=0, no fragmentation
+	private static double byterate; //bitrate in bytes
+	private static int durationPerChunk;
 	private Random r;
-	private ArrayList<Long> tempLong;
+	
+	private ArrayList<Integer> tempInteger;
 	private ArrayList<DTNHost> tempHost; 
-//	private ArrayList<StreamChunk> tempChunk;
+	private ArrayList<DTNHost> recognized;
 	
 	public BroadcasterAppV3(Settings s) {
 		super(s);
@@ -49,33 +48,31 @@ public class BroadcasterAppV3 extends StreamingApplication{
 		byterate = s.getInt(BYTERATE);
 		durationPerChunk = s.getInt(DURATION_PER_CHUNK);
 		
-		sadf = new SADFragmentation();
-		tempLong = new ArrayList<Long>();
-		sadf.setNoOfChunksPerFrag(noOfChunksPerFrag);
-		
-//		r=new Random();
-		sTime = 0;	//s.getDouble("streamTime") * r.nextDouble(); //time to start broadcasting
+		tempInteger = new ArrayList<Integer>();
 		tempHost = new ArrayList<DTNHost>();
-		initUnchoke();
+		recognized = new ArrayList<DTNHost>();
 		
+		sTime = 0;	//s.getDouble("streamTime") * r.nextDouble(); //time to start broadcasting
 		r = new Random();
+		initUnchoke();
+
 	}
 
 	public BroadcasterAppV3(BroadcasterAppV3 a) {
 		super(a);
 		
-		this.streamID=a.getStreamID();
-		this.noOfChunksPerFrag = a.getNumberOfChunksPerFrag();
-		this.byterate = a.getByterate();
-		this.durationPerChunk = a.getDurationPerChunk();
+		noOfChunksPerFrag = a.getNumberOfChunksPerFrag();
+		byterate = a.getByterate();
+		durationPerChunk = a.getDurationPerChunk();
 		
-		sadf = new SADFragmentation();
-		tempLong= new ArrayList<Long>();
-		sadf.setNoOfChunksPerFrag(noOfChunksPerFrag);
-		sTime = a.getSTime();
+		tempInteger= new ArrayList<Integer>();
 		tempHost = new ArrayList<DTNHost>();
-		initUnchoke();
+		recognized = new ArrayList<DTNHost>();
+		
+		sTime = a.getSTime();
 		r = new Random();
+		initUnchoke();
+
 	}
 
 	@Override
@@ -87,32 +84,28 @@ public class BroadcasterAppV3 extends StreamingApplication{
 				String msg_type = (String) msg.getProperty("msg_type");
 				
 				if (msg_type.equalsIgnoreCase(HELLO)){
-					System.out.println(host + " received hello from " +msg.getFrom());
+//					System.out.println(host + " received hello from " +msg.getFrom());
 					
-					long otherAck = (long) msg.getProperty("ack");
+					int otherAck = (int) msg.getProperty("ack");
 					int otherStatus = (int) msg.getProperty("status");
-					ArrayList<Long> otherBuffermap = (ArrayList<Long>) msg.getProperty("buffermap");
+					ArrayList<Integer> otherBuffermap = (ArrayList<Integer>) msg.getProperty("buffermap");
 					
-					if (!stream.isRegistered(msg.getFrom())){ //save that we met this node for the first time
-						stream.registerListener(msg.getFrom());
-					}
-					
-					updateChunkCount(otherBuffermap); //update records of neighbor's data
+//					updateChunkCount(otherBuffermap); //update records of neighbor's data
 				
 					if (broadcasted && otherStatus==-1 && otherAck==-1){ //if otherNode is not listening to any stream yet
 						sendBroadcast(host, msg.getFrom());
-						sendBuffermap(host, msg.getFrom(), stream.getBuffermap());
-						helloSent.put(msg.getFrom(), stream.getBuffermap());
+						sendBuffermap(host, msg.getFrom(), new ArrayList<Integer>(stream.getBuffermap()));
+						helloSent.put(msg.getFrom(), new ArrayList<Integer> (stream.getBuffermap()));
 					}
 					
 					else {
-						sendBuffermap(host, msg.getFrom(), stream.getBuffermap());
+						sendBuffermap(host, msg.getFrom(), new ArrayList<Integer>(stream.getBuffermap()));
 						helloSent.put(msg.getFrom(), stream.getBuffermap());
 					}
 				}
 				
 				else if (msg_type.equalsIgnoreCase(BROADCAST_REQUEST)){ //evaluate here if fragment or chunk it isesend
-					System.out.println(host + " received request from " + msg.getFrom());
+//					System.out.println(host + " received request from " + msg.getFrom());
 					
 					if (sadf.getNoOfChunksPerFrag() == 0 ){
 						sendWithoutFrag(host, msg);
@@ -123,15 +116,13 @@ public class BroadcasterAppV3 extends StreamingApplication{
 				}
 				
 				else if (msg_type.equals(INTERESTED)){
-					System.out.println(host + " received interested from " + msg.getFrom());
-					
-					interestedNeighbors.put(msg.getFrom(), (int) msg.getCreationTime());
+//					System.out.println(host + " received interested from " + msg.getFrom());
+					interestedNeighbors.add(msg.getFrom());
 					evaluateResponse(host, msg.getFrom());	
 				}
 				
 				else if (msg_type.equalsIgnoreCase(UNINTERESTED)){
-					System.out.println(host + " received uninterested from " + msg.getFrom());
-					
+//					System.out.println(host + " received uninterested from " + msg.getFrom());
 					interestedNeighbors.remove(msg.getFrom());
 					if (unchoked.contains(msg.getFrom())){
 						updateUnchoked(unchoked.indexOf(msg.getFrom()), null);
@@ -151,70 +142,121 @@ public class BroadcasterAppV3 extends StreamingApplication{
 		}
 		
 		checkHelloedConnection(host); //remove data of disconnected nodes
+		updateUnchoke(curTime, host);
 		
 		if (broadcasted){
 			//generate chunks here
-			if (curTime - stream.getTimeLastStream() >= stream.getStreamInterval()){ //for every interval
+			if ( curTime - timeLastStream >= stream.getDurationPerChunk() ){ //for every interval
 				stream.generateChunks(getStreamID(), sadf.getCurrIndex());
+				timeLastStream = curTime;
+
 				sendEventToListeners(StreamAppReporter.CHUNK_CREATED, null, host);
-				updateHello(host);
-				
-				System.out.println("Generated chunk " + stream.getLatestChunk().getChunkID() + "Fragment: " + stream.getLatestChunk().getFragmentIndex());
+				updateHello(host, stream.getAck());
+//				System.out.println("Generated chunk " + stream.getLatestChunk().getChunkID() + "Fragment: " + stream.getLatestChunk().getFragmentIndex());
 			
 				//create fragments here
 				if (sadf.getNoOfChunksPerFrag()>0){ 
 					if((stream.getLatestChunk().getChunkID()+1) % sadf.getNoOfChunksPerFrag() == 0){
 			
 						int sIndex = sadf.getCurrIndex() * sadf.getNoOfChunksPerFrag();
-						sadf.createFragment(((ArrayList<StreamChunk>) stream.getChunks()).subList(sIndex,sIndex+sadf.getNoOfChunksPerFrag()));
+						sadf.createFragment(stream.getBuffermap().subList(sIndex, sIndex+noOfChunksPerFrag));
 						try{
 							sadf.getFragment(sadf.getCurrIndex()-1).setIndexComplete();
-							System.out.println(host + " created fragment " + (sadf.getCurrIndex()-1));
+//							System.out.println(host + " created fragment " + (sadf.getCurrIndex()-1));
 						}catch(NullPointerException e){
 							sadf.getFragment(0).setIndexComplete();			
-							System.out.println(host + " created fragment " + (sadf.getCurrIndex()-1));
+//							System.out.println(host + " created fragments " + (sadf.getCurrIndex()-1));
 						}
 						sendEventToListeners(StreamAppReporter.FRAGMENT_CREATED, null, host);
 					}
 				}
 			}
 		}
+	
+	}
+
+	private void sendChunk(StreamChunk chunk, DTNHost host, DTNHost to) {
+//		System.out.println(host + " sending chunk " + chunk.getChunkID());
 		
-		//for maintaining -- choking and unchoking
-		if (curTime-lastChokeInterval >= rechokeInterval){
+		String id = APP_TYPE + ":chunk_" + chunk.getChunkID() +  " " + chunk.getCreationTime() +"-" +to + "-" + host.getAddress();
+		
+		Message m = new Message(host, to, id, (int) byterate);		
+		m.addProperty("type", APP_TYPE);
+		m.setAppID(APP_ID);
+		m.addProperty("msg_type", BROADCAST_CHUNK_SENT);
+		m.addProperty("chunk", chunk);	
+		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 2);
+		host.createNewMessage(m);
 			
+		sendEventToListeners(StreamAppReporter.SENT_CHUNK, chunk, host);
+	}
+
+	private void sendIndexFragment(DTNHost host, DTNHost to, ArrayList<Integer> bundled, int fragId,
+			int startPos, int endPos) {
+		
+		String id = APP_TYPE + ":fragment_" + SimClock.getTime() + "-"+  fragId + "-" + to + "-" + host.getAddress();
+		double size = (bundled.size()*byterate) + HEADER_SIZE;
+		
+		Message m = new Message(host, to, id,  (int) size);		
+		m.addProperty("type", APP_TYPE);
+		m.setAppID(APP_ID);
+		m.addProperty("msg_type", BROADCAST_FRAGMENT_SENT);
+		m.addProperty("frag_type", SADFragmentation.INDEX_LEVEL);
+		m.addProperty("frag_id", fragId);
+		m.addProperty("frag_bundled", bundled);
+		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 2);
+		host.createNewMessage(m);
+
+		sendEventToListeners(StreamAppReporter.SENT_INDEX_FRAGMENT, null, host);
+	}
+	
+	private void sendTransFragment(DTNHost host, DTNHost to,  ArrayList<Integer> tempInteger, int fragId,
+			int startPos, int endPos) {
+		
+		String id = APP_TYPE + ":fragment_"  + SimClock.getTime() + "-" + fragId + "-" + to + "-" + host.getAddress();
+
+		double size = (tempInteger.size()*byterate) + HEADER_SIZE;
+		
+		Message m = new Message(host, to, id, (int) size);		
+		m.addProperty("type", APP_TYPE);
+		m.setAppID(APP_ID);
+		m.addProperty("msg_type", BROADCAST_FRAGMENT_SENT);
+		m.addProperty("frag_type", SADFragmentation.TRANS_LEVEL);
+		m.addProperty("frag_id", fragId);
+		m.addProperty("frag_bundled", tempInteger);
+		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 2);
+		host.createNewMessage(m);
+
+		sendEventToListeners(StreamAppReporter.SENT_TRANS_FRAGMENT, null, host);
+	}
+	
+	public void updateUnchoke(double curTime, DTNHost host){ //for maintaining -- choking and unchoking
+	
+		if (curTime-lastChokeInterval >= rechokeInterval){
+//			System.out.println(" prev uchoked: "+ unchoked);
 			if (hasNewInterested()){
-				ArrayList<DTNHost> recognized =  new ArrayList<DTNHost>(interestedNeighbors.keySet());
-				
-				tempHost.clear();
-				tempHost.addAll((ArrayList<DTNHost>) unchoked.clone());
+				recognized.clear();
+				recognized.addAll(interestedNeighbors);
+//				System.out.println(" recognized: " + recognized);
+				tempHost.clear(); //hold of prevunchoked list
+				tempHost.addAll(unchoked);
 				
 				if (curTime-lastOptimalInterval >= optimisticUnchokeInterval){ //optimistic interval = every 15 seconds
-					recognized.removeAll(unchoked); //remove first an nagrequest bisan unchoked na kanina [pa]. to avoid duplicates
-					recognized.addAll(unchoked); 
 					
-					for (Iterator r = recognized.iterator(); r.hasNext(); ){ //remove null values, unchoked may have null values
-						if(r.next() == null){
-							r.remove();
+					for (Iterator<DTNHost> i = unchoked.iterator(); i.hasNext(); ){ //remove null values, unchoked may have null values
+						DTNHost h = i.next();
+						if(!recognized.contains(h) && h!=null){ //add unique values from unchoked
+							recognized.add(h);
 						}
 					}
-					recognized = sortNeighborsByBandwidth(recognized);
+					
+					sortNeighborsByBandwidth(recognized);
 //					System.out.println(host + " interested nodes: " +recognized);
-					
 					unchokeTop3(host, recognized);
-					tempHost.removeAll(unchoked.subList(0, 3)); //remove an api kanina na diri na api yana ha top3
-					
-			 		/*
-			 		 * api ha pag random yana an naapi ha unchoke kanina tapos diri na api yana ha newly unchoked
-			 		 */
-					unchokeRand(host, recognized, tempHost);
-					tempHost.removeAll(unchoked); //remove utro an tanan na previous na api na ha newly unchoked
-					
-					/*
-					 * nahibilin ha recognized an mga waray ka unchoke. 
-					 * send CHOKE to mga api ha previous unchoked kanina na diri na api yana
-					 */
-					chokeOthers(host, tempHost); //-- don't  choke if it's not on curr unchokedList
+
+					unchokeRand(host, recognized, tempHost); //api ha pag random yana an naapi ha unchoke kanina tapos diri na api yana ha newly unchoked
+					tempHost.removeAll(unchoked); //remove an tanan na previous na api na ha newly unchoked
+					chokeOthers(host, tempHost); //send CHOKE to mga api ha previous unchoked kanina na diri na api yana
 					lastOptimalInterval = curTime;
 				}
 				
@@ -224,19 +266,20 @@ public class BroadcasterAppV3 extends StreamingApplication{
 					unchokeRand(host, recognized, tempHost); //an mga bag-o an pilii random
 				}
 				
-				sendEventToListeners(StreamAppReporter.UNCHOKED, unchoked.clone(), host);
-//				System.out.println(host + " unchoked: " + unchoked);
-				sendEventToListeners(StreamAppReporter.INTERESTED, recognized.clone(), host);
+				sendEventToListeners(StreamAppReporter.UNCHOKED, unchoked, host);
+				sendEventToListeners(StreamAppReporter.INTERESTED, recognized, host);
 			}
-			
 			lastChokeInterval = curTime;
-
+//			System.out.println(host + " Unchoked: " +unchoked);
 		}
+		
 	}
 	
 	public void startBroadcast(DTNHost host){
-		stream= new Stream("streamID", durationPerChunk, byterate, SimClock.getTime());
+//		stream= new Stream("streamID", durationPerChunk, byterate, SimClock.getTime());
 		stream.startLiveStream();
+		sadf = new SADFragmentation();
+		sadf.setNoOfChunksPerFrag(noOfChunksPerFrag);
 		
 		lastChokeInterval = SimClock.getTime();
 		lastOptimalInterval = SimClock.getTime();
@@ -251,26 +294,26 @@ public class BroadcasterAppV3 extends StreamingApplication{
 		m.addProperty("msg_type", BROADCAST_LIVE);
 		m.addProperty("streamID", getStreamID());
 		m.addProperty("stream_name", "tempstream");
-		m.addProperty(BYTERATE, byterate);
-		m.addProperty(DURATION_PER_CHUNK, durationPerChunk);
-		m.addProperty(CHUNKS_PER_FRAG, noOfChunksPerFrag);
+		m.addProperty(BYTERATE, stream.getByterate());
+		m.addProperty(DURATION_PER_CHUNK, stream.getDurationPerChunk());
+		m.addProperty(CHUNKS_PER_FRAG, sadf.getNoOfChunksPerFrag());
 		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 1);
 		m.addProperty("time_started", stream.getTimeStarted());
 		m.addProperty("source", host);
 		m.setAppID(APP_ID);
-		host.createNewMessage(m); //must override, meaning start a broadcast that a stream is initiated from this peer
+		host.createNewMessage(m); //a broadcast is initiated from this peer
 		
 		lastChokeInterval = SimClock.getTime();
 		lastOptimalInterval = SimClock.getTime();
 		super.sendEventToListeners(BROADCAST_LIVE, null, host);
 	}
 	
-	public void sendBuffermap(DTNHost host, DTNHost to, Collection<Long> list){
+	public void sendBuffermap(DTNHost host, DTNHost to, ArrayList<Integer> list){
 		String id = APP_TYPE+ ":hello_" + SimClock.getTime() +"-" + host.getAddress() +"-" + to;
 		
-		long ack =-1;
+		int ack =-1;
 		if(!stream.getBuffermap().isEmpty()){
-			ack = stream.getLatestChunk().getChunkID();
+			ack = stream.getAck();
 		}
 		
 		Message m = new Message(host, to, id, BUFFERMAP_SIZE); //buffermap size must have basis
@@ -282,117 +325,117 @@ public class BroadcasterAppV3 extends StreamingApplication{
 		m.addProperty("buffermap", list); // this is full buffermap
 		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 5);
 		host.createNewMessage(m);
-	
 	}
 	
-	public void updateHello(DTNHost host){
-		long currAck=-1;
-		
-		if (stream.getLatestChunk()!=null){
-			currAck = stream.getLatestChunk().getChunkID();
-		}
-		
-		tempLong.clear();
-		tempLong.add(currAck);
-		
+	public void updateHello(DTNHost host, int newChunk){
+		tempInteger.clear(); //temp hold for latest chunk created
+		tempInteger.add(newChunk);
+
 		for (DTNHost h: unchoked){
 			if (h!=null){
-				sendBuffermap(host, h, tempLong);
-				helloSent.get(h).addAll((ArrayList<Long>) tempLong.clone());
+				sendBuffermap(host, h, new ArrayList<Integer>(tempInteger));
+				helloSent.get(h).add(newChunk);
 			}
 		}
 		
 		for (DTNHost h: helloSent.keySet()){
 			if (!unchoked.contains(h)){
-				sendBuffermap(host, h, tempLong);
-				helloSent.get(h).addAll((ArrayList<Long>) tempLong.clone());
+				sendBuffermap(host, h, new ArrayList<Integer>(tempInteger));
+				helloSent.get(h).addAll(tempInteger);
 			}
 		}
+		
 	}	
 	
 	private void sendWithoutFrag(DTNHost host, Message msg){
-		ArrayList<Long> request = (ArrayList<Long>) msg.getProperty("chunk");
-		
-		for (long rChunk: request){
-			sendChunk(stream.getChunk(rChunk), host, msg.getFrom());
+		ArrayList<Integer> request = (ArrayList<Integer>) msg.getProperty("chunk");
+//		Iterator<Long> i = request.iterator();
+		for (int id : request){
+			sendChunk(stream.getChunk(id), host, msg.getFrom());
 		}
 	}
 	
 	private void evaluateToSend(DTNHost host, Message msg) {
-		ArrayList<Long> request = (ArrayList<Long>) msg.getProperty("chunk");
-		tempLong.clear();
+		ArrayList<Integer> request = (ArrayList<Integer>) msg.getProperty("chunk");
+		tempInteger.clear(); //temporary storage for chunks to send
 		
-		long rChunk;
+		int rChunk;
 		int currFrag;
 		
 		while(!request.isEmpty()){
 			rChunk = request.get(0);
 			currFrag = stream.getChunk(rChunk).getFragmentIndex();
-			tempLong.clear();
+			tempInteger.clear();
 			
-			if (sadf.doesExist(currFrag) && sadf.getFragment(currFrag).isComplete()){ //if diri pa complete an index level, cannot send transmission level
-				long fIndex = sadf.getFragment(currFrag).getFirstChunkID();
-				long eIndex = sadf.getFragment(currFrag).getEndChunk();
+			if ( sadf.doesExist(currFrag) && sadf.getFragment(currFrag).isComplete() ){ //send fragments
+				int fChunk = sadf.getFragment(currFrag).getFirstChunkID();
+				int lChunk = sadf.getFragment(currFrag).getEndChunk();
 				
-				if (request.contains(fIndex) && request.contains(eIndex) && //for full index request
-					request.subList(request.indexOf(fIndex), request.indexOf(eIndex)+1).size() == sadf.getFragment(currFrag).getNoOfChunks()){
+				//if request contains full fragment
+				if (request.contains(fChunk) && request.contains(lChunk) && 
+					request.subList(request.indexOf(fChunk), request.indexOf(lChunk)+1).size() == sadf.getFragment(currFrag).getNoOfChunks()){
 						
-						if (isGreaterThanTrans(host, msg.getFrom(), sadf.getFragment(currFrag).getSize())){ //fragment with respect to trans size
-							subFragment(host, msg.getFrom(), (ArrayList<StreamChunk>) sadf.getFragment(currFrag).getBundled().clone(), currFrag);
-							request.removeAll(request.subList(request.indexOf(fIndex), request.indexOf(eIndex)+1));
-						}
-						else{
-							sendIndexFragment(host, msg.getFrom(), sadf.getFragment(currFrag));
-							request.removeAll(request.subList(request.indexOf(fIndex), request.indexOf(eIndex)+1));
-						}
+					//check if fragment size is greater than tran size
+					if (isGreaterThanTrans(host, msg.getFrom(), ((sadf.getFragment(currFrag).getNoOfChunks()*byterate)+HEADER_SIZE))){ //fragment with respect to trans size
+						tempInteger = subFragment(host, msg.getFrom(), sadf.getFragment(currFrag).getBundled(), currFrag);
+						request.removeAll(request.subList(request.indexOf(fChunk), request.indexOf(lChunk)+1));
+					}
+					else{ //if fragment size<=trans size
+						int sIndex = sadf.getFragment(currFrag).indexOf(fChunk);
+						int lIndex= sadf.getFragment(currFrag).indexOf(lChunk);
+						sendIndexFragment(host, msg.getFrom(), sadf.getFragment(currFrag).getBundled(), currFrag, sIndex, lIndex);
+						request.removeAll(request.subList(request.indexOf(fChunk), request.indexOf(lIndex)+1));
+					}
 				}
 				
+				else{ //if request is not a full fragment
+					
+//					int prevChunk= rChunk;
+//					Iterator<Long> iter = request.iterator();
+//					
+//					double transSize = 	getTransSize(host, msg.getFrom());
+//					double byteRate = stream.getByterate();
+//					double currSize;
+//					int currChunk;
+//					
+//					while(iter.hasNext()){
+//						currChunk = iter.next();
+//						currSize = (tempInteger.size()*byteRate) + HEADER_SIZE;
+//					
+//						if(currFrag == stream.getChunk(currChunk).getFragmentIndex() && (tempInteger.isEmpty() || currChunk==prevChunk+1)
+//								&& currSize < transSize){
+//							tempInteger.add(currChunk);
+//							prevChunk = currChunk;
+//							iter.remove();
+//						}
+//						else{
+//							if (currSize > transSize){
+//								sendEventToListeners(StreamAppReporter.SIZE_ADJUSTED, null, host);
+//							}
+//							break;
+//						}
+					
+					tempInteger = subFragment(host, msg.getFrom(), sadf.getFragment(currFrag).getBundled(), currFrag);
+				}
+					
+				if (tempInteger.size()>1){ //
+					int start = sadf.getFragment(currFrag).indexOf(tempInteger.get(0));
+					int end = sadf.getFragment(currFrag).indexOf(tempInteger.get(tempInteger.size()));
+					
+					sendTransFragment(host, msg.getFrom(), new ArrayList<Integer>(tempInteger), currFrag, start, end);
+				}
+				else if (tempInteger.size()==1){ //limit trans level == 2 chunks fragmented
+					sendChunk(stream.getChunk(tempInteger.get(0)), host, msg.getFrom());
+				}
 				else{
-					long prevChunk= rChunk;
-					Iterator<Long> iter = request.iterator();
-					
-					double transSize = 	getTransSize(host, msg.getFrom());
-					double byteRate = stream.getByterate();
-					double currSize;
-					
-					while(iter.hasNext()){
-						long currChunk = iter.next();
-						currSize = (tempLong.size()*byteRate) + HEADER_SIZE;
-					
-						if(currFrag == stream.getChunk(currChunk).getFragmentIndex() && (tempLong.isEmpty() || currChunk==prevChunk+1)
-								&& currSize < transSize){
-							tempLong.add(currChunk);
-							prevChunk = currChunk;
-							iter.remove();
-						}
-						else{
-							if (currSize > transSize){
-								sendEventToListeners(StreamAppReporter.SIZE_ADJUSTED, null, host);
-							}
-						}
-					}
-					
-					if (!tempLong.isEmpty() && tempLong.size()>1){ //nasend fragment bisan usa la it sulod
-						int start = sadf.getFragment(currFrag).indexOf(tempLong.get(0));
-						int end = sadf.getFragment(currFrag).indexOf(tempLong.get(tempLong.size()-1));
-						
-						Fragment fragment = new Fragment(currFrag, sadf.getFragment(currFrag).getBundled().subList(start, end+1));
-						fragment.setStartPosition(start);
-						fragment.setEndPosition(end);
-						sendTransFragment(host, msg.getFrom(), fragment);
-					}
-					else if (tempLong.size()==1){ //limit trans level == 2 chunks fragmented
-						sendChunk(stream.getChunk(tempLong.get(0)), host, msg.getFrom());
-					}
-					else{
-						sendChunk(stream.getChunk(rChunk), host, msg.getFrom());
-					}
+					sendChunk(stream.getChunk(rChunk), host, msg.getFrom());
 				}
+				
 			}
 			
-			else{ // if fragment does not exists
+			else{ //if fragment does not exist, send chunk individually
 				sendChunk(stream.getChunk(rChunk), host, msg.getFrom());
-				request.remove(request.indexOf(rChunk));
+				request.remove(rChunk);
 			}
 		}
 	}
@@ -400,52 +443,36 @@ public class BroadcasterAppV3 extends StreamingApplication{
 	/*
 	 * called if total chunks to send is greater than translevel
 	 */
-	private void subFragment(DTNHost host, DTNHost to, ArrayList<StreamChunk> bundle, int currFrag){
+	private ArrayList<Integer> subFragment(DTNHost host, DTNHost to, ArrayList<Integer> bundle, int currFrag){
 		sendEventToListeners(StreamAppReporter.SIZE_ADJUSTED, null, host);
-		tempLong.clear();
+		tempInteger.clear(); //temporary storage for chunks to send
 		
 		double transSize = 	getTransSize(host, to);
-		double byteRate = StreamChunk.getByterate();
 		double currSize;
-		long prevChunk;
+		int prevChunk;
 		
-		while(!bundle.isEmpty()){
-			Iterator<StreamChunk> iter = bundle.iterator();
-			tempLong.clear();
-			prevChunk = bundle.get(0).getChunkID();
-			
-			while(iter.hasNext()){
-				long currChunk = iter.next().getChunkID();
-				currSize = ((tempLong.size()+1)*byteRate) + HEADER_SIZE;
+		Iterator<Integer> iter = bundle.iterator();
+		prevChunk = bundle.get(0);
+		
+		int currChunk;
+		while(iter.hasNext()){
+			currChunk = iter.next();
+			currSize = ((tempInteger.size()+1)*byterate) + HEADER_SIZE;
 
-				if(currFrag == stream.getChunk(currChunk).getFragmentIndex() && (tempLong.isEmpty() || currChunk==prevChunk+1)
-						&& currSize < transSize){
-					tempLong.add(currChunk);
-					prevChunk = currChunk;
-					iter.remove();
-				}
-				else{
-					if (currSize > transSize){
-						sendEventToListeners(StreamAppReporter.SIZE_ADJUSTED, null, host);
-					}
-				}
+			if(currFrag == stream.getChunk(currChunk).getFragmentIndex() && (tempInteger.isEmpty() || currChunk==prevChunk+1) 
+					&& currSize < transSize){
+				tempInteger.add(currChunk);
+				prevChunk = currChunk;
+				iter.remove();
 			}
-			
-			if (!tempHost.isEmpty() && tempHost.size()>1){ //nasend fragment bisan usa la it sulod
-				//if tapos na, send this part of request_response 
-				int start = sadf.getFragment(currFrag).indexOf(tempLong.get(0));
-				int end = sadf.getFragment(currFrag).indexOf(tempLong.get(tempLong.size()-1));
-				
-//				ArrayList<StreamChunk> subFrag= new ArrayList<StreamChunk> ();
-				Fragment fragment = new Fragment(currFrag, sadf.getFragment(currFrag).getBundled().subList(start, end+1));
-				fragment.setStartPosition(start);
-				fragment.setEndPosition(end);
-				sendTransFragment(host, to, fragment);
-			}
-			else if (tempLong.size()==1){ //limit trans level == 2 chunks fragmented
-				sendChunk(stream.getChunk(tempLong.get(0)), host, to);
+			else{
+				if (currSize > transSize){
+					sendEventToListeners(StreamAppReporter.SIZE_ADJUSTED, null, host);
+				}
+				break;
 			}
 		}
+		return tempInteger;
 	}
 	
 	private boolean isGreaterThanTrans(DTNHost host, DTNHost to, double size){	
@@ -457,52 +484,21 @@ public class BroadcasterAppV3 extends StreamingApplication{
 		return 	((TVProphetRouterV2) host.getRouter()).getTransmissionPreds(to);
 	}
 	
-	@Override
-	protected void sendChunk(StreamChunk chunk, DTNHost host, DTNHost to) {
-		String id = APP_TYPE + ":chunk_" + chunk.getChunkID() +  " " + chunk.getCreationTime() +"-" +to + "-" + host.getAddress();
-		
-		Message m = new Message(host, to, id, (int) chunk.getSize());		
-		m.addProperty("type", APP_TYPE);
-		m.setAppID(APP_ID);
-		m.addProperty("msg_type", BROADCAST_CHUNK_SENT);
-		m.addProperty("chunk", chunk);	
-		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 2);
-		host.createNewMessage(m);
-
-		sendEventToListeners(StreamAppReporter.SENT_CHUNK, chunk, host);
-	}
+//	@Override
+//	protected void sendChunk(StreamChunk chunk, DTNHost host, DTNHost to) {
+//		String id = APP_TYPE + ":chunk_" + chunk.getChunkID() +  " " + chunk.getCreationTime() +"-" +to + "-" + host.getAddress();
+//		
+//		Message m = new Message(host, to, id, (int) chunk.getSize());		
+//		m.addProperty("type", APP_TYPE);
+//		m.setAppID(APP_ID);
+//		m.addProperty("msg_type", BROADCAST_CHUNK_SENT);
+//		m.addProperty("chunk", chunk);	
+//		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 2);
+//		host.createNewMessage(m);
+//
+//		sendEventToListeners(StreamAppReporter.SENT_CHUNK, chunk, host);
+//	}
 	
-	private void sendIndexFragment(DTNHost host, DTNHost to, Fragment frag) {
-		
-		String id = APP_TYPE + ":fragment_" + SimClock.getTime() + "-"+  frag.getId() + "-" + to + "-" + host.getAddress();
-		
-		Message m = new Message(host, to, id, (int) (frag.getSize()+HEADER_SIZE));		
-		m.addProperty("type", APP_TYPE);
-		m.setAppID(APP_ID);
-		m.addProperty("msg_type", BROADCAST_FRAGMENT_SENT);
-		m.addProperty("frag_type", SADFragmentation.INDEX_LEVEL);
-		m.addProperty("fragment", frag);
-		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 2);
-		host.createNewMessage(m);
-
-		sendEventToListeners(StreamAppReporter.SENT_INDEX_FRAGMENT, null, host);
-		
-	}
-	
-	private void sendTransFragment(DTNHost host, DTNHost to, Fragment frag) {
-		String id = APP_TYPE + ":fragment_"  + SimClock.getTime() + "-" + frag.getId() + "-" + to + "-" + host.getAddress();
-
-		Message m = new Message(host, to, id, (int) (frag.getSize()+HEADER_SIZE));		
-		m.addProperty("type", APP_TYPE);
-		m.setAppID(APP_ID);
-		m.addProperty("msg_type", BROADCAST_FRAGMENT_SENT);
-		m.addProperty("frag_type", SADFragmentation.TRANS_LEVEL);
-		m.addProperty("fragment", frag);
-		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 2);
-		host.createNewMessage(m);
-
-		sendEventToListeners(StreamAppReporter.SENT_TRANS_FRAGMENT, null, host);
-	}
 	
 	/*
 	 * 
@@ -510,7 +506,7 @@ public class BroadcasterAppV3 extends StreamingApplication{
 	 * 
 	 */
 
-	public void evaluateResponse(DTNHost host, DTNHost to){ //evaluate if we should choke or unchoke this node that sent INTERESTED at time before chokeInterval
+	private void evaluateResponse(DTNHost host, DTNHost to){ //evaluate if we should choke or unchoke this node that sent INTERESTED at time before chokeInterval
 		int ctr=0;
 		try{
 			while(unchoked.get(ctr)!=null && ctr<4){
@@ -526,7 +522,6 @@ public class BroadcasterAppV3 extends StreamingApplication{
 		}
 	}
 
-	
 	/*
 	 * 
 	 * @param isOkay true if response is unchoke. false if choke
@@ -546,15 +541,15 @@ public class BroadcasterAppV3 extends StreamingApplication{
 			msgType = CHOKE;
 		}
 
-		tempLong.clear();
-		tempLong.addAll(stream.getBuffermap());
-		tempLong.removeAll(helloSent.get(to));
+		tempInteger.clear();
+		tempInteger.addAll(stream.getBuffermap());
+		tempInteger.removeAll(helloSent.get(to)); //storage for buffermap that has not been sent since last update 
 		
 		Message m = new Message(host, to, id, SIMPLE_MSG_SIZE);		
 		m.addProperty("type", APP_TYPE);
 		m.setAppID(APP_ID);
 		m.addProperty("msg_type", msgType);
-		m.addProperty("buffermap", tempLong.clone());
+		m.addProperty("buffermap", new ArrayList<Integer>(tempInteger));
 		m.addProperty(TVProphetRouterV2.MESSAGE_WEIGHT, 4);
 		host.createNewMessage(m);
 	}
@@ -563,15 +558,17 @@ public class BroadcasterAppV3 extends StreamingApplication{
 	 * count if an sulod han interested is same la ha mga unchoked
 	 */
 	private boolean hasNewInterested(){
-
 		if (interestedNeighbors.isEmpty()) return false;
 			
 		tempHost.clear();
-		tempHost.addAll(interestedNeighbors.keySet());
-		tempHost.removeAll(unchoked);
+		tempHost.addAll(interestedNeighbors);
+		tempHost.removeAll(unchoked); //storage for interested host that are not yet unchoke
 		
 		return !tempHost.isEmpty();
 	}
+
+	
+	// ----------------------> T R A C E H E R E --------------------------------
 	
 	/*
 	 * called every 15 seconds.
@@ -605,7 +602,7 @@ public class BroadcasterAppV3 extends StreamingApplication{
 		if (recognized.isEmpty()) return;
 
 		DTNHost prevRand;
-		recognized.removeAll(unchoked.subList(0, 3)); //remove pagpili random an ada na ha unchoked list
+//		recognized.removeAll(unchoked.subList(0, 3)); //remove pagpili random an ada na ha unchoked list
 		prevRand = unchoked.get(3);
 		
 		int index = r.nextInt(recognized.size()); //possible ini maging same han last random
@@ -615,7 +612,7 @@ public class BroadcasterAppV3 extends StreamingApplication{
 			if (prevRand!=null)  sendResponse(host, prevRand, false); //send CHOKE to this random node if it is not the same with new node
 			recognized.remove(prevRand);
 			if (!prevUnchoked.contains(randNode)){
-				sendResponse(host, randNode, true); //sendUnchoke to this random node
+				sendResponse(host, randNode, true); //sendUnchoke to this random node if it isn't unchoked before
 			}
 		}
 		updateUnchoked(3, randNode);
@@ -628,12 +625,6 @@ public class BroadcasterAppV3 extends StreamingApplication{
 			if (r!=null){
 				sendResponse(host, r, false); 
 			}
-		}
-	}
-	
-	private void initUnchoke(){
-		for (int i=0; i<4; i++){
-			unchoked.add(i, null);
 		}
 	}
 

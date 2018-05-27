@@ -97,7 +97,7 @@ public class TVProphetRouterV2 extends ActiveRouter {
 			beta = DEFAULT_BETA;
 		}
 
-		initPreds();
+//		initPreds();
 		initEncTimes();
 		initTava();
 		initVava();
@@ -113,7 +113,7 @@ public class TVProphetRouterV2 extends ActiveRouter {
 		super(r);
 		this.secondsInTimeUnit = r.secondsInTimeUnit;
 		this.beta = r.beta;
-		initPreds();
+//		initPreds();
 		initEncTimes();
 		initTava();
 		initVava();
@@ -136,7 +136,7 @@ public class TVProphetRouterV2 extends ActiveRouter {
 			updateTransmissionPreds(getHost() , otherHost);
 			
 			lastEncounterTime.put(otherHost, SimClock.getTime());
-			timeRecord.put(otherHost,SimClock.getTime());
+//			timeRecord.put(otherHost,SimClock.getTime());
 		}
 		
 		else{
@@ -144,13 +144,13 @@ public class TVProphetRouterV2 extends ActiveRouter {
 			
 			endTime = SimClock.getTime();
 			
-			double duration = endTime-timeRecord.get(otherHost);
+			double duration = endTime-lastEncounterTime.get(otherHost);
 			
 			updateTava(otherHost, round(duration));
 			updateVava(otherHost,con.getSpeed()/1000);
 
 			timeRecord.put(otherHost, round(duration));
-			lastEncounterTime.put(otherHost, duration);
+			lastEncounterTime.put(otherHost, endTime);
 		}
 		
 	}
@@ -225,14 +225,14 @@ public class TVProphetRouterV2 extends ActiveRouter {
 		return transSize;
 	}
 	
-//	public Message getFirstMessageOnBuffer(){
-//		List<Tuple<Message, Connection>> buffer = sortByWeight(getMessagesForConnected());
-//
-//		if (!buffer.isEmpty()){
-//			return buffer.get(0).getKey();
-//		}
-//		return null;
-//	}
+	public Message getFirstMessageOnBuffer(){
+		List<Tuple<Message, Connection>> buffer = sortByWeight(getMessagesForConnected());
+
+		if (!buffer.isEmpty()){
+			return buffer.get(0).getKey();
+		}
+		return null;
+	}
 	
 	@Override
 	public void update() {
@@ -246,108 +246,106 @@ public class TVProphetRouterV2 extends ActiveRouter {
 //		 * sortBufferByWeight.
 //		 * 
 //		 */
-//		if (exchangeUrgentMessages() !=null){ //sorts bufferByWeight
-//			return;
-//		}
+		if (exchangeUrgentMessages() !=null){ //sorts bufferByWeight
+			return;
+		}
 		
 //		// try messages that could be delivered to final recipient
-		if (exchangeDeliverableMessages() != null) {
-			return;	
-		}
+//		if (exchangeDeliverableMessages() != null) {
+//			return;	
+//		}
 		
 //		tryOtherMessages();	
 	} 
 	
-//	public boolean shouldSendFirst(Connection c){
-//		DTNHost other = c.getOtherNode(getHost());
-//		Message m1 = getFirstMessageOnBuffer();
-//		Message m2 = ((TVProphetRouterV2) other.getRouter()).getFirstMessageOnBuffer();
-//		
-//		if (m2==null){ //otherNode has no message to send
-//			return true;
-//		}
-//		if (m1==null){ //we have no message to send (di ko pa gets kayano error kun waray ini)
-//			return false;
-//		}
-//
-//		int weight1 = (int) m1.getProperty(MESSAGE_WEIGHT);
-//		int weight2 = (int) m2.getProperty(MESSAGE_WEIGHT);
-//		if (weight1<=weight2){ //evaluate whose message is more urgent (with respect to time) m1.getCreationTime() <= m2.getCreationTime() || 
-//			return true;
-//		}
-//		return false;
-//	}
+	public boolean shouldSendFirst(Connection c){
+		DTNHost other = c.getOtherNode(getHost());
+		Message m1 = getFirstMessageOnBuffer();
+		Message m2 = ((TVProphetRouterV2) other.getRouter()).getFirstMessageOnBuffer();
+		
+		if (m2==null){ //otherNode has no message to send
+			return true;
+		}
+		if (m1==null){ //we have no message to send (di ko pa gets kayano error kun waray ini)
+			return false;
+		}
+
+		int weight1 = (int) m1.getProperty(MESSAGE_WEIGHT);
+		int weight2 = (int) m2.getProperty(MESSAGE_WEIGHT);
+		if (weight1<=weight2){ //evaluate whose message is more urgent (with respect to time) m1.getCreationTime() <= m2.getCreationTime() || 
+			return true;
+		}
+		return false;
+	}
 	
 //	/*
 //	 * Prioritizes sending messages that has lesser weight
 //	 */
-//	private Connection exchangeUrgentMessages(){
-//		List<Connection> connections = getConnections();
-//
-//		if (connections.size() == 0) {
-//			return null;
-//		}
-//		Tuple<Message, Connection> t = null;
-//		List<Tuple<Message, Connection>> buffer = sortByWeight(getMessagesForConnected());
-//
-//		if (!buffer.isEmpty()){
-//			for (Connection c : connections){
-////				if (shouldSendFirst(c)){
-//					t = tryMessagesForConnected(buffer);
-////				}
-//			}
-//		}
-//		
-//		if (t!=null){
-//			return t.getValue();
-//		}
-//
-////		 didn't start transfer to any node -> ask messages from connected
+	private Connection exchangeUrgentMessages(){
+		List<Connection> connections = getConnections();
+
+		if (connections.size() == 0) {
+			return null;
+		}
+		Tuple<Message, Connection> t = null;
+		List<Tuple<Message, Connection>> buffer = sortByWeight(sortByQueueMode(getMessagesForConnected()));
+		if (!buffer.isEmpty()){
+			for (Connection c : connections){
+				if (shouldSendFirst(c)){
+					t = tryMessagesForConnected(buffer);
+				}
+			}
+		}
+		
+		if (t!=null){
+			return t.getValue();
+		}
+
+//		 didn't start transfer to any node -> ask messages from connected
 //		for (Connection con : connections) {
 //			if (con.getOtherNode(getHost()).requestDeliverableMessages(con)) {
 //				return con;
 //			}
 //		}
-//		return null;
-//	}
+		return null;
+	}
 	
 //	/*
 //	 * Sorts messages depending on their weight
 //	 */
-//	@SuppressWarnings(value = "unchecked") /* ugly way to make this generic */
-//	private List sortByWeight(List list){
-//		Collections.sort(list,
-//				new Comparator() {
-//			/** Compares two tuples by their messages' weight */
-//			public int compare(Object o1, Object o2) {
-//				double diff;
-//				Message m1, m2;
-//
-//				if (o1 instanceof Tuple) {
-//					m1 = ((Tuple<Message, Connection>)o1).getKey();
-//					m2 = ((Tuple<Message, Connection>)o2).getKey();
-//				}
-//				else if (o1 instanceof Message) {
-//					m1 = (Message)o1;
-//					m2 = (Message)o2;
-//				}
-//				else {
-//					throw new SimError("Invalid type of objects in " +
-//							"the list");
-//				}
-//
-//				int weight1 = (int) m1.getProperty(MESSAGE_WEIGHT);
-//				int weight2 = (int) m2.getProperty(MESSAGE_WEIGHT);
-//				diff = weight1- weight2;
-//				if (diff == 0) {
-//					return 0;
-//				}
-//				return (diff < 0 ? -1 : 1);
-//			}
-//		});
-////		System.out.println("buffer List: " +list);
-//		return list;
-//	}
+	@SuppressWarnings(value = "unchecked") /* ugly way to make this generic */
+	private List sortByWeight(List list){
+		Collections.sort(list,
+				new Comparator() {
+			/** Compares two tuples by their messages' weight */
+			public int compare(Object o1, Object o2) {
+				double diff;
+				Message m1, m2;
+
+				if (o1 instanceof Tuple) {
+					m1 = ((Tuple<Message, Connection>)o1).getKey();
+					m2 = ((Tuple<Message, Connection>)o2).getKey();
+				}
+				else if (o1 instanceof Message) {
+					m1 = (Message)o1;
+					m2 = (Message)o2;
+				}
+				else {
+					throw new SimError("Invalid type of objects in " +
+							"the list");
+				}
+
+				int weight1 = (int) m1.getProperty(MESSAGE_WEIGHT);
+				int weight2 = (int) m2.getProperty(MESSAGE_WEIGHT);
+				diff = weight1-weight2;
+				if (diff == 0) {
+					return 0;
+				}
+				return (diff < 0 ? -1 : 1);
+			}
+		});
+		return list;
+	}
 	
 	public Message getStoredMessage(String id) {
 		for (Message m : getMessageCollection()){
@@ -536,20 +534,20 @@ public class TVProphetRouterV2 extends ActiveRouter {
 	
 	@Override
 	public RoutingInfo getRoutingInfo() {
-		ageDeliveryPreds();
+//		ageDeliveryPreds();
 		RoutingInfo top = super.getRoutingInfo();
-		RoutingInfo ri = new RoutingInfo(preds.size() +
-				" delivery prediction(s)");
+//		RoutingInfo ri = new RoutingInfo(preds.size() +
+//				" delivery prediction(s)");
 		RoutingInfo transSize = new RoutingInfo(transmissionPreds.size() + " transmission prediction(s)");
 //		RoutingInfo buffer = new RoutingInfo(getMessageCollection().size() + " messages to send.");
 		
-				for (Map.Entry<DTNHost, Double> e : preds.entrySet()) {
-			DTNHost host = e.getKey();
-			Double value = e.getValue();
-
-			ri.addMoreInfo(new RoutingInfo(String.format("%s : %.6f",
-					host, value)));
-		}
+//		for (Map.Entry<DTNHost, Double> e : preds.entrySet()) {
+//			DTNHost host = e.getKey();
+//			Double value = e.getValue();
+//
+//			ri.addMoreInfo(new RoutingInfo(String.format("%s : %.6f",
+//					host, value)));
+//		}
 		for (Entry<DTNHost, Double> t : transmissionPreds.entrySet()){
 			DTNHost host = t.getKey();
 			Double value = t.getValue();
@@ -562,7 +560,7 @@ public class TVProphetRouterV2 extends ActiveRouter {
 //		}
 
 		
-		top.addMoreInfo(ri);
+//		top.addMoreInfo(ri);
 		top.addMoreInfo(transSize);
 //		top.addMoreInfo(buffer);
 		return top;

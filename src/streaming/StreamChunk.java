@@ -12,28 +12,15 @@ public class StreamChunk{
 	public static final double m1080p = 625; //5000kbps
 	public static final int CHUNK_TTL = 0; //infinite
 	
-	private static int duration=1;  //seconds per chunk
-	
-	//specific video properties
-	private static double byterate; //in bytes per second
-	
 	private String fileID;
-	private long chunkID;
-	private double size = (duration * byterate); // size of 1 chunk bytes
+	private int chunkID;
 	
 	private int fId=0;
 	private double timeCreated; //+30 for end time?
 	
-	public StreamChunk(String fileID, long chunkID){
+	public StreamChunk(String fileID, int chunkID){
 		this.fileID = fileID;
 		this.chunkID = chunkID;
-		timeCreated = SimClock.getTime();
-	}
-	
-	public StreamChunk(String fileID, long chunkID, byte byterate){
-		this.fileID = fileID;
-		this.chunkID = chunkID;
-		StreamChunk.byterate = byterate;
 		timeCreated = SimClock.getTime();
 	}
 	
@@ -41,16 +28,8 @@ public class StreamChunk{
 		return fileID;
 	}
 	
-	public long getChunkID(){
+	public int getChunkID(){
 		return chunkID;
-	}
-	
-	public double getSize(){
-		return size;
-	}
-	
-	public void setSize(double size){
-		this.size = size;
 	}
 	
 	public double getCreationTime(){
@@ -65,11 +44,4 @@ public class StreamChunk{
 		return fId;
 	}
 
-	public static double getByterate(){
-		return byterate;
-	}
-
-	public static int getDuration(){
-		return duration;
-	}
 }

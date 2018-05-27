@@ -6,11 +6,12 @@ import java.util.List;
 import javax.swing.plaf.synth.SynthScrollBarUI;
 
 import core.SimClock;
+import streaming.Stream;
 import streaming.StreamChunk;
 
 public class Fragment {
 	private int id; //index id
-	private ArrayList<StreamChunk> bChunks;
+	private ArrayList<Integer> bChunks;
 	private double timeCreated;
 	private String sourceId;
 	private int startPosition=-1; //starting chunk id of the fragment
@@ -18,9 +19,9 @@ public class Fragment {
 	private int size; //in bytes
 	private boolean isComplete = false;
 	
-	public Fragment(int id, List<StreamChunk> bChunks){
+	public Fragment(int id, List<Integer> bChunks){
 		this.id = id;
-		this.bChunks = new ArrayList<StreamChunk> (bChunks);
+		this.bChunks = new ArrayList<Integer> (bChunks);
 		timeCreated = SimClock.getTime();
 	}
 	
@@ -28,7 +29,7 @@ public class Fragment {
 		return timeCreated;
 	}
 	
-	public ArrayList<StreamChunk> getBundled(){
+	public ArrayList<Integer> getBundled(){
 		return bChunks;
 	}
 	
@@ -36,8 +37,8 @@ public class Fragment {
 		return id;
 	}
 	
-	public long getFirstChunkID(){
-		return bChunks.get(0).getChunkID();
+	public int getFirstChunkID(){
+		return bChunks.get(0);
 	}
 	
 	public int startPosition(){
@@ -64,19 +65,19 @@ public class Fragment {
 		return isComplete;
 	}
 	
-	public long getEndChunk(){
-		return bChunks.get(bChunks.size()-1).getChunkID();
+	public int getEndChunk(){
+		return bChunks.get(bChunks.size()-1);
 	}
 	
-	public double getSize(){
-		return (StreamChunk.getByterate()* getNoOfChunks());
-	}
+//	public double getSize(){
+//		return * getNoOfChunks());
+//	}
 	
 	public int getNoOfChunks(){
 		return bChunks.size();
 	}
 	
-	public void updateBundle(int pos, StreamChunk c){ //mainly used by watcher. adding transmission level frags
+	public void updateBundle(int pos, int c){ //mainly used by watcher. adding transmission level frags
 		bChunks.set(pos, c);
 		
 		if (pos < startPosition || startPosition==-1){
@@ -90,7 +91,7 @@ public class Fragment {
 	}
 	
 	private void checkIfIndexComplete(){
-		for (StreamChunk c: bChunks){
+		for (Integer c: bChunks){
 			if (c==null){
 				return;
 			}
@@ -102,13 +103,14 @@ public class Fragment {
 		isComplete = true;
 	}
 	
-	public int indexOf(long id){
-		for(int i=0; i<bChunks.size(); i++){
-			if (bChunks.get(i).getChunkID() == id){
-				return i;
-			}
-		}
-		return -1;
+	public int indexOf(int id){
+		return bChunks.indexOf(id);
+//		for(int i=0; i<bChunks.size(); i++){
+//			if (bChunks.get(i) == id){
+//				return i;
+//			}
+//		}
+//		return -1;
 	}
 	
 }

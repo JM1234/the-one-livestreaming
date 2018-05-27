@@ -394,8 +394,7 @@ public abstract class ActiveRouter extends MessageRouter {
 			Message m = t.getKey();
 			Connection con = t.getValue();
 			if (startTransfer(m, con) == RCV_OK) { 
-//				System.out.println(" @ trymessagesforconnected Started transfer: " + m);
-				tuple = t;
+				if (tuple==null) tuple = t;
 			}
 		}
 		
@@ -494,12 +493,12 @@ public abstract class ActiveRouter extends MessageRouter {
 			return t.getValue(); // started transfer
 		}
 
-		// didn't start transfer to any node -> ask messages from connected
-		for (Connection con : connections) {
-			if (con.getOtherNode(getHost()).requestDeliverableMessages(con)) {
-				return con;
-			}
-		}
+//		// didn't start transfer to any node -> ask messages from connected
+//		for (Connection con : connections) {
+//			if (con.getOtherNode(getHost()).requestDeliverableMessages(con)) {
+//				return con;
+//			}
+//		}
 
 		return null;
 	}

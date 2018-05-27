@@ -94,8 +94,7 @@ public abstract class MessageRouter {
 	/** The messages being transferred with msgID_hostName keys */
 	private HashMap<String, Message> incomingMessages;
 	/** The messages this router is carrying */
-//	private HashMap<String, Message> messages; 
-	private LinkedHashMap<String, Message> messages;
+	private HashMap<String, Message> messages;
 	/** The messages this router has received as the final recipient */
 	private HashMap<String, Message> deliveredMessages;
 	/** The messages that Applications on this router have blacklisted */
@@ -160,7 +159,7 @@ public abstract class MessageRouter {
 	 */
 	public void init(DTNHost host, List<MessageListener> mListeners) {
 		this.incomingMessages = new HashMap<String, Message>();
-		this.messages = new LinkedHashMap<String, Message>();
+		this.messages = new HashMap<String, Message>();
 		this.deliveredMessages = new HashMap<String, Message>();
 		this.blacklistedMessages = new HashMap<String, Object>();
 		this.mListeners = mListeners;
@@ -557,7 +556,7 @@ public abstract class MessageRouter {
 			break;
 		case Q_MODE_PRIORITY:
 			Collections.sort(list,
-					new Comparator() {
+					new Comparator() {																																																																																																																																																										
 				/** Compares two tuples by their messages' weight */
 				public int compare(Object o1, Object o2) {
 					double diff;
@@ -578,7 +577,7 @@ public abstract class MessageRouter {
 
 					int weight1 = (int) m1.getProperty(MESSAGE_WEIGHT);
 					int weight2 = (int) m2.getProperty(MESSAGE_WEIGHT);
-					diff = weight1- weight2;
+					diff = weight1 - weight2;
 					if (diff == 0) {
 						return 0;
 					}
@@ -618,7 +617,10 @@ public abstract class MessageRouter {
 			}
 			return (diff < 0 ? -1 : 1);
 		case Q_MODE_PRIORITY:
-			double d = m1.getCreationTime() - m2.getCreationTime();
+
+			int weight1 = (int) m1.getProperty(MESSAGE_WEIGHT);
+			int weight2 = (int) m2.getProperty(MESSAGE_WEIGHT);
+			double d = weight1 - weight2;
 			if (d == 0) {
 				return 0;
 			}

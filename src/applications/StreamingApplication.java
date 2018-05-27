@@ -1,29 +1,21 @@
 package applications;
 
 import java.util.ArrayList;
+
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.Set;
 import java.util.SortedSet;
-import java.util.TreeMap;
 import java.util.TreeSet;
-
-import javax.swing.text.html.HTMLDocument.Iterator;
 
 import core.Application;
 import core.Connection;
 import core.DTNHost;
 import core.Message;
 import core.Settings;
-import core.SimScenario;
-import core.World;
-import routing.TVProphetRouter;
 import routing.TVProphetRouterV2;
-import streaming.StreamChunk;
 import util.Tuple;
 
 public abstract class StreamingApplication extends Application{
@@ -34,17 +26,13 @@ public abstract class StreamingApplication extends Application{
 	public static final String BROADCAST_LIVE = "BROADCAST_LIVE";
 	public static final String BROADCAST_REQUEST = "REQUEST_STREAM";
 	public static final String BROADCAST_CHUNK_SENT = "CHUNK_SENT";
-	public static final String CHUNK_RECEIVED = "RECEIVED_CHUNK";
-	public static final String FRAGMENT_RECEIVED = "RECEIVED_FRAGMENT";
 	public static final String BROADCAST_FRAGMENT_SENT = "SENT_FRAGMENT";
-	public static final String FRAGMENT_DELIVERED = "DELIVERED_FRAGMENT";
 	public static final String HELLO = "HELLO";
 	public static final String INTERESTED = "INTERESTED";
 	public static final String UNINTERESTED = "UNINTERESTED";
 	public static final String CHOKE = "CHOKED";
 	public static final String UNCHOKE = "UNCHOKED";
 	
-	public static final String STREAM_SIZE = "streamSize";
 	public static final String STREAM_ID = "streamID";
 	public static final String STREAM_NAME = "streamName";
 	public static final String RECHOKE_INTERVAL = "rechokeInterval";
@@ -52,6 +40,7 @@ public abstract class StreamingApplication extends Application{
 	public static final String CHUNKS_PER_FRAG = "noOfChunksPerFrag";
 	public static final String BYTERATE = "byterate";
 	public static final String DURATION_PER_CHUNK = "durationPerChunk"; //seconds only
+	public static final String WINDOW_SIZE = "windowSize";
 	
 	public static final int SIMPLE_MSG_SIZE = 5;
 	public static final int BUFFERMAP_SIZE = 10;
@@ -61,13 +50,14 @@ public abstract class StreamingApplication extends Application{
 	
 	private String	streamID = "9999";
 	
-	private TreeMap<Long, Integer> chunkCount; //for rarest
+	protected HashMap<DTNHost, ArrayList<Integer>> helloSent; //nodes we sent hello to
+	protected ArrayList<DTNHost> interestedNeighbors; //nodes that can request from us
 	protected ArrayList<DTNHost> unchoked; //nodes that we unchoked
-	protected HashMap<DTNHost, Integer> interestedNeighbors; //nodes that can request from us
-	protected HashMap<DTNHost, ArrayList<Long>> helloSent; //nodes we sent hello to
-	protected int rechokeInterval;
-	protected int optimisticUnchokeInterval;
 	
+	protected static int rechokeInterval;
+	protected static int optimisticUnchokeInterval;
+	
+//	private TreeMap<Long, Integer> chunkCount; //for rarest
 	private ArrayList<DTNHost> currConnected;
 	private ArrayList<DTNHost> tempHoldHost;
 	
@@ -80,10 +70,10 @@ public abstract class StreamingApplication extends Application{
 		rechokeInterval = s.getInt(RECHOKE_INTERVAL);
 		optimisticUnchokeInterval = s.getInt(OPTIMISTIC_UNCHOKE_INTERVAL);
 		
-		helloSent = new HashMap<DTNHost, ArrayList<Long>>();
-		chunkCount = new TreeMap<Long, Integer>();
-		interestedNeighbors = new HashMap<DTNHost, Integer>();
+		helloSent = new HashMap<DTNHost, ArrayList<Integer>>();
+		interestedNeighbors = new ArrayList<DTNHost>();
 		unchoked = new ArrayList<DTNHost>(4);
+		
 		currConnected= new ArrayList<DTNHost>();
 		tempHoldHost = new ArrayList<DTNHost>();
 		
@@ -97,12 +87,13 @@ public abstract class StreamingApplication extends Application{
 		rechokeInterval = a.getRechokeInterval();
 		optimisticUnchokeInterval = a.getOptimisticUnchokeInterval();
 		
-		helloSent = new HashMap<DTNHost, ArrayList<Long>>();
-		interestedNeighbors = new HashMap<DTNHost, Integer>();
-		chunkCount = new TreeMap<Long, Integer>();
+		helloSent = new HashMap<DTNHost, ArrayList<Integer>>();
+		interestedNeighbors = new ArrayList<DTNHost>();
 		unchoked = new ArrayList<DTNHost>(4);
+	
 		currConnected= new ArrayList<DTNHost>();
 		tempHoldHost = new ArrayList<DTNHost>();
+
 	}
 
 	private int getOptimisticUnchokeInterval() {
@@ -111,10 +102,6 @@ public abstract class StreamingApplication extends Application{
 
 	private int getRechokeInterval() {
 		return rechokeInterval;
-	}
-
-	private int getIndexSize(TVProphetRouter router, DTNHost otherHost){
-		return (int) router.getIndexSize();
 	}
 	
 	public String getStreamID(){
@@ -127,7 +114,7 @@ public abstract class StreamingApplication extends Application{
 	@Override
 	public abstract void update(DTNHost host);
 	
-	protected abstract void sendChunk(StreamChunk chunk, DTNHost host, DTNHost to);
+//	protected abstract void sendChunk(StreamChunk chunk, DTNHost host, DTNHost to);
 
 	protected Connection getCurrConnection(DTNHost h1, DTNHost h2){
 		for(Connection c: h1.getConnections()){
@@ -142,16 +129,18 @@ public abstract class StreamingApplication extends Application{
 	 * Checks if there are changes in connection.
 	 * Delete hosts in sentHello that are already down.
 	 * Automatically removes buffer for disconnected nodes.
+	 * returns nodes that are already disconnected
+	 * 
 	 */
-	protected void checkHelloedConnection(DTNHost host){ 
+	protected ArrayList<DTNHost> checkHelloedConnection(DTNHost host){ 
 		currConnected.clear();
 		tempHoldHost.clear();
-		
+
 		for (Connection c : host.getConnections()){
 			currConnected.add(c.getOtherNode(host));
 		}
 
-		tempHoldHost.addAll(helloSent.keySet());
+		tempHoldHost.addAll(new ArrayList<DTNHost> (helloSent.keySet()));
 		tempHoldHost.removeAll(currConnected);
 
 	    for(DTNHost dtnHost : tempHoldHost){
@@ -159,7 +148,13 @@ public abstract class StreamingApplication extends Application{
 			interestedNeighbors.remove(dtnHost); //if it sent an interested message, remove it from the list of interested
 			updateUnchoked(unchoked.indexOf(dtnHost), null); //if it is included among the current list of unchoked  -----------------------feeling ko may something wrong ini
 			helloSent.remove(dtnHost);
-	    }
+	    }	
+	    return tempHoldHost;
+	}
+
+	protected ArrayList<DTNHost> getNewConnections(){
+		currConnected.removeAll(new ArrayList<DTNHost> (helloSent.keySet()));
+		return currConnected;
 	}
 	
 	/*
@@ -181,17 +176,18 @@ public abstract class StreamingApplication extends Application{
 		return helloSent.keySet().contains(host);
 	}
 
-	protected void updateChunkCount(ArrayList<Long> buffermap){
-		for (long id : buffermap){
-			int count = chunkCount.containsKey(id) ? chunkCount.get(id):0;
-			chunkCount.put(id, count+1);
-		}
-	}
 	
-	public TreeMap<Long, Integer> getChunkCount(){
-		entriesSortedByValues(chunkCount);
-		return chunkCount;
-	}
+//	protected void updateChunkCount(ArrayList<Long> buffermap){
+//		for (long id : buffermap){
+//			int count = chunkCount.containsKey(id) ? chunkCount.get(id):0;
+//			chunkCount.put(id, count+1);
+//		}
+//	}
+//	
+//	public TreeMap<Long, Integer> getChunkCount(){
+//		entriesSortedByValues(chunkCount);
+//		return chunkCount;
+//	}
 	
 	public static <K,V extends Comparable<? super V>>
 		SortedSet<Map.Entry<K,V>> entriesSortedByValues(Map<K,V> map) {
@@ -208,16 +204,13 @@ public abstract class StreamingApplication extends Application{
 	    return sortedEntries;
 	}
 
-	public ArrayList<DTNHost> sortNeighborsByBandwidth(ArrayList<DTNHost> hosts){
-		Collections.sort(hosts, StreamingApplication.BandwidthComparator);
-		return hosts;
-	}
+//	public ArrayList<DTNHost> sortNeighborsByBandwidth(ArrayList<DTNHost> hosts){
+//		Collections.sort(hosts, StreamingApplication.BandwidthComparator);
+//		return hosts;
+//	}
 	
-	public ArrayList<DTNHost> sortNeighborsByBandwidth(List<DTNHost> hosts){
-		tempHoldHost.clear();
-		tempHoldHost.addAll(hosts);
-		Collections.sort(tempHoldHost, StreamingApplication.BandwidthComparator);
-		return tempHoldHost;
+	public void sortNeighborsByBandwidth(List<DTNHost> hosts){
+		Collections.sort(hosts, StreamingApplication.BandwidthComparator);
 	}
 
     public static Comparator<DTNHost> BandwidthComparator = new Comparator<DTNHost>() {
@@ -228,7 +221,7 @@ public abstract class StreamingApplication extends Application{
     		if (speed2>speed1){
     			return 1;
     		}
-    		else if (speed1>speed2){
+    		else if (speed2<speed1){
     			return -1;
     		}
     		return 0;
@@ -237,8 +230,22 @@ public abstract class StreamingApplication extends Application{
 
     public void updateUnchoked(int index, DTNHost value){
     	try{
-    		unchoked.set(index, value); // if in unchoked, remove from list of unchoked
+    		this.unchoked.set(index, value); // change value of unchoke to null if toberemoved
     	}catch(ArrayIndexOutOfBoundsException e){} 
     }
-  
+	
+	protected void initUnchoke(){
+		for (int i=0; i<4; i++){
+			unchoked.add(i, null);
+		}
+	}
+	
+	protected ArrayList<Integer> copyInt(ArrayList<Integer> c){
+		return new ArrayList<Integer> (c);
+	}
+	
+	protected ArrayList<DTNHost> copyHost(ArrayList<DTNHost> h){
+		return new ArrayList<DTNHost> (h);
+	}
+	
 }

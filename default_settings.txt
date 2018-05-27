@@ -5,7 +5,7 @@
 ## Scenario settings
 #Scenario.name = E1_NoFrag_NoPrebuffer_Static_1node
 Scenario.simulateConnections = true
-Scenario.updateInterval = 0.1
+Scenario.updateInterval = 0.01
 #Scenario.endTime = 3600
 Scenario.nrofHostGroups = 1
 

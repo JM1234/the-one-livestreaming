@@ -42,7 +42,7 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	public static final String RESENT_REQUEST = "resentRequest";
 	public static final String SENT_REQUEST = "sentRequest";
 	public static final String UNCHOKED = "unchoked";
-	public static final String INTERESTED = "INTERESTED";
+	public static final String INTERESTED = "interested";
 	public static final String CHUNK_CREATED = "chunkCreated";
 	public static final String UPDATE_AVAILABLE_NEIGHBORS = "updateAvailableNeighbor";
 	public static final String UPDATE_ACK = "updateAck";
@@ -53,13 +53,13 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	public static final String FRAGMENT_CREATED = "fragmentCreated";
 	public static final String SKIPPED_CHUNK = "skippedChunk";
 	
-	private String excelDir = "/home/jejejanz/janeil_workspace/the-one-streaming/";
+	private static String excelDir = "";
 	
-	private TreeMap<DTNHost, NodeProperties> nodeRecord = new TreeMap<DTNHost, NodeProperties>();
+	private static TreeMap<DTNHost, NodeProperties> nodeRecord = new TreeMap<DTNHost, NodeProperties>();
 	private int createdChunks=0;
 	
 	public void gotEvent(String event, Object params, Application app, DTNHost host) {
-		
+	
 		if (!(app instanceof StreamingApplication)) return;
 		
 		NodeProperties nodeProps = nodeRecord.get(host);
@@ -67,7 +67,6 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 			nodeRecord.put(host, new NodeProperties());
 			nodeProps = nodeRecord.get(host);
 		}
-		
 		if (event.equalsIgnoreCase(BROADCAST_RECEIVED)){
 			double time=(double) params;
 			nodeProps.setTimeBroadcastReceived(time);
@@ -75,24 +74,27 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 		else if (event.equalsIgnoreCase(CHUNK_CREATED)){
 			createdChunks++;
 		}
-		else if (event.equalsIgnoreCase(STARTED_PLAYING)){
-			double time=(double) params;
-			nodeProps.setTimeStartedPlaying(time);
-		}
 		else if (event.equalsIgnoreCase(LAST_PLAYED)){
-			double time=(double) params;
-			nodeProps.setTimeLastPlayed(time);
+			int id= (int) params;
+			if (nodeProps.getTimeLastPlayed() == -1){
+				nodeProps.setTimeStartedPlaying(SimClock.getTime());
+			}
+			nodeProps.setTimeLastPlayed(SimClock.getTime(), id);
+			
 		}
 		else if (event.equalsIgnoreCase(INTERRUPTED)){
 			double ctr = nodeProps.getNrofTimesInterrupted()+1;
 			nodeProps.setNrofTimesInterrupted(ctr);
 		}
 		else if (event.equalsIgnoreCase(RECEIVED_CHUNK)){
-			long id = (long) params;
+			int id = (int) params;
 			nodeProps.addChunk(id);
 		}
 		else if (event.equalsIgnoreCase(RECEIVED_DUPLICATE)){
-			nodeProps.incNrOfDuplicateChunks();
+//			nodeProps.incNrOfDuplicateChunks();
+			int id = (int) params;
+			nodeProps.addDuplicateChunk(id);
+	
 		}
 		else if (event.equalsIgnoreCase(FIRST_TIME_REQUESTED)){
 			double time = (double) params;
@@ -104,24 +106,24 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 		}
 		else if (event.equalsIgnoreCase(SENT_REQUEST)){
 			int ctr= nodeProps.getNrofTimesRequested()+1;
-			ArrayList<Long> id = (ArrayList<Long>) params;
+			int id = (int) params;
 			nodeProps.addRequested(id);
 			nodeProps.setNrofTimesRequested(ctr);
 		}
-		else if (event.equalsIgnoreCase(UNCHOKED)){
-			ArrayList<DTNHost> unchokedH = (ArrayList<DTNHost>) params;
-			nodeProps.updateUnchoke(SimClock.getTime(), unchokedH);
-		}
-		else if (event.equalsIgnoreCase(INTERESTED)){
-			ArrayList<DTNHost> interestedH = (ArrayList<DTNHost>) params;
-			nodeProps.updateInterested(SimClock.getTime(), interestedH);
-		}
-		else if (event.equals(UPDATE_AVAILABLE_NEIGHBORS)){
-			Set<DTNHost> availableH = (Set<DTNHost>) params;
-			nodeProps.updateAvailable(SimClock.getTime(), availableH);
-		}
+//		else if (event.equalsIgnoreCase(UNCHOKED)){
+//			ArrayList<DTNHost> unchokedH = (ArrayList<DTNHost>) params;
+//			nodeProps.updateUnchoke(SimClock.getTime(), unchokedH);
+//		}
+//		else if (event.equalsIgnoreCase(INTERESTED)){
+//			ArrayList<DTNHost> interestedH = (ArrayList<DTNHost>) params;
+//			nodeProps.updateInterested(SimClock.getTime(), interestedH);
+//		}
+//		else if (event.equals(UPDATE_AVAILABLE_NEIGHBORS)){
+//			ArrayList<DTNHost> availableH = (ArrayList<DTNHost>) params;
+//			nodeProps.updateAvailable(SimClock.getTime(), availableH);
+//		}
 		else if (event.equals(UPDATE_ACK)){
-			long ack = (long) params;
+			int ack = (int) params;
 			nodeProps.setAck(ack);
 		}
 		else if (event.equalsIgnoreCase(SIZE_ADJUSTED)){
@@ -139,60 +141,31 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 		else if (event.equalsIgnoreCase(FRAGMENT_CREATED)){
 			nodeProps.incNrOfFragmentsCreated();
 		}
-		else if (event.equalsIgnoreCase(SKIPPED_CHUNK)){
-			long id = (long) params;
-			nodeProps.addSkippedChunk(id);
-		}
+//		else if (event.equalsIgnoreCase(SKIPPED_CHUNK)){
+//			int id = (int) params;
+//			nodeProps.addSkippedChunk(id);
+//		}
 		nodeRecord.put(host, nodeProps);
+		
 	}
 
 	public void recordPerNode(){
-////		String eol = System.getProperty("line.separator");
-//		String chunkRecord="";
-////		String nodesUnchoked;
-//////		String nodesInterested;
-////		String nodesAvailable;
-////		String chunksReceived; 
+		String eol = System.getProperty("line.separator");
+		String chunkRecord="";
+
+		String chunksCreated = "Total Chunks Created: " + createdChunks;
+		write(chunksCreated);
 //		
-//		String chunksCreated = "Total Chunks Created: " + createdChunks;
-//		write(chunksCreated);
-//		
-//		for (DTNHost h: nodeRecord.keySet()){
-////				chunkRecord+= " --------" + h + "---------->" + eol 
-////				 + "time_started_playing: " +  nodeRecord.get(h).getTimeStartedPlaying() + eol
-////				 + "time_last_played: " + nodeRecord.get(h).getTimeLastPlayed() + eol
-////				 + "number_of_times_interrupted: " + nodeRecord.get(h).getNrofTimesInterrupted() + eol
-////				 + "number_of_chunks_received (total): " + nodeRecord.get(h).getNrofChunksReceived() + eol
-////				 + "ack: " + nodeRecord.get(h).getAck() + eol
-////				 + "chunks_requested: " + nodeRecord.get(h).getChunksReceived().keySet() + eol
-////				 + "number_of_duplicate_chunks_received: " + nodeRecord.get(h).getNrofDuplicateChunks() + eol
-////				 + "time_first_requested: " + nodeRecord.get(h).getTimeFirstRequested() + eol
-////				 + "time_first_chunk_received: " + nodeRecord.get(h).getTimeFirstChunkReceived() + eol
-////				 + "number_of_times_requested: " + nodeRecord.get(h).getNrofTimesRequested() + eol
-////				 + "number_of_chunks_requested_again: " + nodeRecord.get(h).getNrofDuplicateChunks() + eol
-////				 + "number_of_times_size_adjusted: " + nodeRecord.get(h).getSizeAdjustedCount() + eol
-////				 + "number_of_index_fragments_sent: " + nodeRecord.get(h).getNrOfTimesSentIndex() + eol
-////				 + "number_of_trans_fragments_sent: " + nodeRecord.get(h).getNrOfTimesSentIndex() + eol
-////				 + "total_chunks_sent: " + nodeRecord.get(h).getNrOfTimesSentChunk() + eol
-////				 + "average_wait_time:" + nodeRecord.get(h).getAverageWaitTime();
-//				
-//				double timeStartedPlaying = round(nodeRecord.get(h).getTimeStartedPlaying());
-//				double timeLastPlayed =round(nodeRecord.get(h).getTimeLastPlayed());
-//				long ack = nodeRecord.get(h).getAck();
-//				int numberOfTimesInterrupted = nodeRecord.get(h).getNrofTimesInterrupted();
-//				int numberOfChunksReceived =  nodeRecord.get(h).getNrofChunksReceived();
-//				int numberOfDuplicateChunksReceived = nodeRecord.get(h).getNrofDuplicateChunks();
-//				double averageWaitTime = round(nodeRecord.get(h).getAverageWaitTime());
-//				double timeFirstRequested = round(nodeRecord.get(h).getTimeFirstRequested());
-//				double timeFirstChunkReceived = round(nodeRecord.get(h).getTimeFirstChunkReceived());
-//				int numberOfTimesRequested = nodeRecord.get(h).getNrofTimesRequested();
-//				int numberOfChunksRequestedAgain = nodeRecord.get(h).getNrofDuplicateChunks();
-//				int numberOfTimesAdjusted = nodeRecord.get(h).getSizeAdjustedCount();
-//				int totalIndexFragmentSent = nodeRecord.get(h).getNrOfTimesSentIndex();
-//				int totalTransFragmentSent = nodeRecord.get(h).getNrofTimesSentTrans();
-//				int totalChunksSent = nodeRecord.get(h).getNrOfTimesSentChunk();
-//				int nrOfFragmentsCreated = nodeRecord.get(h).getNrOfFragmentsCreated();
-//				
+		for (DTNHost h: nodeRecord.keySet()){
+				chunkRecord= " --------" + h + "---------->" + eol 
+				 + "chunks_received: " + nodeRecord.get(h).getChunksReceived().keySet() + eol
+//				 + "unchoked_hosts: " + nodeRecord.get(h).getUnchokeList() + eol
+//				 + "available_hosts: " + nodeRecord.get(h).getAvailableList() + eol
+				 + "chunk_wait_time: " + nodeRecord.get(h).getChunkWaitTime().values() + eol
+				 + "duplicate _requests: " + nodeRecord.get(h).getDuplicateRequest() + eol
+				 + "duplicate_chunks: " + nodeRecord.get(h).getDuplicateChunks();
+//				 + "chunks_skipped: " + nodeRecord.get(h).getChunksSkipped();
+//				 + "unchoked list: " + nodeRecord.get(h).getUnchokeList();
 ////				chunkRecord = String.format("%8s %s %8s %s %5s %s %4s %s %4s %s %4s %8s %s %8s %s %8s %s %4s %s %4s %s %4s %s %4s %s %4s %s %4s", 
 ////						timeStartedPlaying, ' ', timeLastPlayed, ' ', ack, ' ', numberOfTimesInterrupted,' ',  numberOfChunksReceived,' ',
 ////						numberOfDuplicateChunksReceived, ' ',averageWaitTime, ' ',timeFirstRequested, ' ',timeFirstChunkReceived, ' ', 
@@ -204,10 +177,10 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 //						numberOfDuplicateChunksReceived, averageWaitTime, timeFirstRequested, timeFirstChunkReceived,
 //						numberOfTimesRequested, numberOfChunksRequestedAgain,  numberOfTimesAdjusted,totalIndexFragmentSent,
 //						totalTransFragmentSent,totalChunksSent, nrOfFragmentsCreated );
-//				
-//				write(chunkRecord);
-//		}
-//		super.done();
+				
+				write(chunkRecord);
+		}
+	
 	}
 	
 	public int getSeed(){
@@ -223,8 +196,7 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	public void done(){
 		WriteExcel test = new WriteExcel();
 	
-//		excelDir
-		excelDir += getReportDir() + getScenarioName() + ".xls";
+		excelDir = "/home/jejejanz/janeil_workspace/the-one-livestreaming/" + getReportDir() + getScenarioName() + ".xls";
 		
 		System.out.println(" excelDir: " + excelDir);
 		test.setOutputFile(excelDir);
@@ -240,6 +212,10 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 		} catch (BiffException e) {
 			e.printStackTrace();
 		}
+		
+		recordPerNode();
+		super.done();
+		nodeRecord.clear();
 	}
 	
 	public double round(double value) {

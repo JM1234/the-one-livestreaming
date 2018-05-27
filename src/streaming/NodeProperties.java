@@ -1,12 +1,11 @@
 package streaming;
 
 import java.util.ArrayList;
-import java.util.Collections;
+
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Set;
+import java.util.List;
 import java.util.TreeMap;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 
 import core.DTNHost;
@@ -19,28 +18,28 @@ public class NodeProperties {
 	private double timeLastPlayed=-1;
 	private double timeFirstRequested=-1;
 	private double timeFirstChunkReceived=-1;
+	private int lastChunkPlayed=-1;
 	private double nrofTimesInterrupted=0;
-	private int nrofDuplicateChunks=0;
-	private int nrofDuplicateRequest=0;
+//	private int nrofDuplicateChunks=0;
+//	private int nrofDuplicateRequest=0;
 	private int nrofTimesRequested=0;
 	private int nrofTimesSentIndex=0;
 	private int nrofTimesSentTrans=0;
 	private int nrofTimesSentChunk=0;
 	private int nrofFragmentsCreated=0;
 	
-	private TreeMap<Long, Double> chunksReceived= new TreeMap<Long, Double>();;
-	private LinkedHashMap<Double, ArrayList<DTNHost>> unchoked = new LinkedHashMap<Double, ArrayList<DTNHost>>();
-	private LinkedHashMap<Double, ArrayList<DTNHost>> interested = new LinkedHashMap<Double, ArrayList<DTNHost>>();
-	private LinkedHashMap<Double,Set<DTNHost>> availableH = new LinkedHashMap<Double,Set<DTNHost>>();
-	private	HashMap<Long, Double> requested = new HashMap<Long, Double>();
-	private TreeMap<Long, Double> chunkWaitTime = new TreeMap<Long, Double>();
-	public HashMap<DTNHost, ArrayList<Long>> toSearch = new HashMap<DTNHost, ArrayList<Long>>();
-	public ArrayList<Long> chunksSkipped = new ArrayList<Long>();
+	private TreeMap<Integer, Double> chunksReceived= new TreeMap<Integer, Double>();
+//	private HashMap<Double, ArrayList<DTNHost>> unchoked = new HashMap<Double, ArrayList<DTNHost>>();
+	private TreeMap<Integer, Double> chunkWaitTime = new TreeMap<Integer, Double>();
+	private HashMap<Integer, Double> chunksSkipped = new HashMap<Integer, Double>();
+	private	HashMap<Integer, Double> requested = new HashMap<Integer, Double>();
+	private ArrayList<Integer> duplicateRequest = new ArrayList<Integer>();
+	private ArrayList<Integer> duplicateChunks = new ArrayList<Integer>();
 	
-	private long ack;
+	private int ack;
 	private int sizeAdjustedCount=0;
 	
-	public void addChunk(long chunk){
+	public void addChunk(int chunk){
 		chunksReceived.put(chunk, SimClock.getTime());
 		double waitTime = chunksReceived.get(chunk) - requested.get(chunk);
 		chunkWaitTime.put(chunk, waitTime);
@@ -50,11 +49,19 @@ public class NodeProperties {
 		if (chunkWaitTime.isEmpty()) return -1;
 
 		double average = 0;
-		for(long id : chunkWaitTime.keySet()){
+		for(int id : chunkWaitTime.keySet()){
 			average +=chunkWaitTime.get(id);
 		}
 		average/=chunkWaitTime.size();
 		return average;
+	}
+	
+	public TreeMap<Integer, Double> getChunkWaitTime(){
+		return chunkWaitTime;
+	}
+	
+	public HashMap<Integer, Double> getChunksSkipped(){
+		return chunksSkipped;
 	}
 	
 	public void setTimeBroadcastReceived(double timeBroadcastReceived){
@@ -65,8 +72,13 @@ public class NodeProperties {
 		this.timeStartedPlaying = timeStartedPlaying;
 	}
 	
-	public void setTimeLastPlayed(double timeLastPlayed){
+	public void setTimeLastPlayed(double timeLastPlayed, int id){
 		this.timeLastPlayed = timeLastPlayed;
+		this.lastChunkPlayed = id;
+	}
+	
+	public int getLastPlayedChunk(){
+		return lastChunkPlayed;
 	}
 	
 	public void setTimeFirstRequested(double timeFirstRequested){
@@ -81,13 +93,14 @@ public class NodeProperties {
 		this.nrofTimesRequested = nrofTimesRequested;
 	}
 	
-	public void incNrOfDuplicateChunks(){
-		this.nrofDuplicateChunks++;
+	public void addDuplicateChunk(int id){
+		this.duplicateChunks.add(id);
+//		this.nrofDuplicateChunks++;
 	}
 
-	public void setNrofDuplicateRequest(int nrofDuplicateRequest){
-		this.nrofDuplicateRequest=nrofDuplicateRequest;
-	}
+//	public void setNrofDuplicateRequest(int nrofDuplicateRequest){
+//		this.nrofDuplicateRequest=nrofDuplicateRequest;
+//	}
 	
 	public void setNrofTimesInterrupted(double nrofTimesInterrupted){
 		this.nrofTimesInterrupted=nrofTimesInterrupted;
@@ -118,18 +131,26 @@ public class NodeProperties {
 	}
 	
 	public int getNrofDuplicateChunks(){
-		return nrofDuplicateChunks;
+		return duplicateChunks.size(); //nrofDuplicateChunks;
 	}
 
 	public int getNrofDuplicateRequest(){
-		return nrofDuplicateRequest;
+		return duplicateRequest.size(); //nrofDuplicateRequest;
+	}
+	
+	public ArrayList<Integer> getDuplicateChunks(){
+		return duplicateChunks;
+	}
+	
+	public ArrayList<Integer> getDuplicateRequest(){
+		return duplicateRequest;
 	}
 
 	public double getNrofTimesInterrupted(){
 		return nrofTimesInterrupted;
 	}
 	
-	public TreeMap<Long, Double> getChunksReceived(){
+	public TreeMap<Integer, Double> getChunksReceived(){
 		return chunksReceived;
 	}	
 
@@ -137,50 +158,43 @@ public class NodeProperties {
 		return chunksReceived.size();
 	}
 	
-	public void updateUnchoke(double curTime, ArrayList<DTNHost> hosts){
-		unchoked.put(curTime, hosts);
-	}
+//	public void updateUnchoke(double curTime, ArrayList<DTNHost> hosts){
+//		unchoked.put(curTime, hosts);
+//	}
 	
-	public void updateInterested(double curTime, ArrayList<DTNHost> hosts){
-		interested.put(curTime, hosts);
-	}
+//	public void updateAvailable(double curTime, ArrayList<DTNHost> hosts){
+//		availableH.put(curTime, hosts);
+//	}
+//	
+//	public HashMap<Double, ArrayList<DTNHost>> getUnchokeList(){
+//		return unchoked;
+//	}
+//	
+//	public HashMap<Double, ArrayList<DTNHost>> getAvailableList(){
+//		return availableH;
+//	}
 	
-	public void updateAvailable(double curTime, Set<DTNHost> hosts){
-		availableH.put(curTime, hosts);
-	}
-	
-	public HashMap<Double, ArrayList<DTNHost>> getUnchokeList(){
-		return unchoked;
-	}
+//	public HashMap<Integer, Double> getRequested(){
+//		return requested;
+//	}
 
-	public HashMap<Double, ArrayList<DTNHost>> getInterestedList(){
-		return interested;
-	}
-	
-	public HashMap<Double, Set<DTNHost>> getAvailableList(){
-		return availableH;
-	}
-	
-	public HashMap<Long, Double> getRequested(){
-		return requested;
-	}
-
-	public void addRequested(ArrayList<Long> newIds){
-		for(long newId: newIds){
-			if (requested.containsKey(newId)){
-				nrofDuplicateRequest++;
-			}
-			else{
-				requested.put(newId, SimClock.getTime()); //put the first time this was requested
-			}
+	public void addRequested(int newId){
+//		for(int newId: newIds){
+		if (requested.containsKey(newId)){
+//			nrofDuplicateRequest++;
+			duplicateRequest.add(newId);
 		}
+		else{
+			requested.put(newId, SimClock.getTime()); //put the first time this was requested
+		}
+//		}
 	}
 	
-	public void setAck(long ack){
+	public void setAck(int ack){
 		this.ack = ack;
 	}
 	
-	public long getAck(){
+	public int getAck(){
 		return ack;
 	}
 	
@@ -224,17 +238,16 @@ public class NodeProperties {
 		return nrofFragmentsCreated;
 	}
 	
-	public long getLastChunkReceived(){
+	public int getLastChunkReceived(){
 		try{
 			return chunksReceived.lastKey();
 		}catch(NoSuchElementException e){
 			return -1;
 		}
-		
 	}
 
-	public void addSkippedChunk(long id){
-		chunksSkipped.add(id);
+	public void addSkippedChunk(int id){
+		chunksSkipped.put(id, SimClock.getTime());
 	}
 	
 	public int getNrOfSkippedChunks(){

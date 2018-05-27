@@ -1,12 +1,9 @@
 package streaming;
 
-
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-
-import core.DTNHost;
+import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Works like a MessageListener, only with a stream of chunks.
@@ -16,41 +13,43 @@ import core.DTNHost;
  */
 public class Stream {
 	
+	private static int durationPerChunk;
+	private static double byterate;
+	private static int prebuffer;
+	
+	private String streamID;
 	private int chunkNo=0000;
 	public boolean isStreaming = true;
 
-	private int streamInterval;
-	private int accumChunkSize =0;
-	private double byterate;
-
-	private LinkedHashMap<Long, StreamChunk> streamSet;
-	private HashMap<DTNHost, Integer> listener;
-	private ArrayList<Long> temp;
+	private TreeMap<Integer, StreamChunk> streamSet;
+	private ArrayList<Integer> buffermap;
 	private StreamChunk latestChunk;
 	
-	protected DTNHost from;
-	protected DTNHost to;
 	protected String id;
-	private double timeLastStream;	
-	private String streamID;
-	private double timeStarted;
+	private double timeStarted=-1;
+	private int playing=-1; //index currently playing
+	private int ack=-1; //last consecutive sent. == windowStart
+	private int windowSize; //10
+	private int chunkStart=-1;
 	
-	//variable for limitTime. randomize variable on how long the live stream is gonna last
-	public Stream(String streamID, int streamInterval, double byterate, double timeStarted) {
-		this.streamID = streamID;
-		this.byterate = byterate;
-		this.timeStarted = timeStarted;
+	//variable for limitTime. randomize variable on how int the live stream is gonna last
+	public Stream(String streamID, int durationPerChunk, double byterate, double timeStarted, int windowSize) {
+		Stream.byterate = byterate;
+		Stream.durationPerChunk = durationPerChunk;
 		
-		this.streamInterval = streamInterval;
-		streamSet= new LinkedHashMap<Long,StreamChunk>() ;
-		listener = new HashMap<DTNHost, Integer>();
-		temp = new ArrayList<Long>();
+		this.streamID = streamID;
+		this.timeStarted = timeStarted;
+		this.windowSize = windowSize;
+		
+		streamSet = new TreeMap<Integer,StreamChunk>();
+		buffermap = new ArrayList<Integer>();
 	}
-	
-	public int getStreamInterval(){
-		return streamInterval;
+
+	public void addChunk(StreamChunk chunk){
+		streamSet.put(chunk.getChunkID(), chunk);
+		buffermap.add(chunk.getChunkID());
 	}
-	
+
 	public double getTimeStarted(){
 		return timeStarted;
 	}
@@ -69,101 +68,109 @@ public class Stream {
 	}
 	
 	public void generateChunks(String fileID, int fID){
-
 		//create chunks
-		long chunkID = generateChunkID(fileID, chunkNo++);
+		int chunkID = generateChunkID(fileID, chunkNo++);
 		StreamChunk chunk = new StreamChunk(id, chunkID);
-		chunk.setSize(byterate);
 		chunk.setFragmentIndex(fID);
 		streamSet.put(chunkID, chunk);
 		latestChunk = chunk; 
-		
-		try{
-			timeLastStream = getLatestChunk().getCreationTime();
-		}catch(NullPointerException e){
-			timeLastStream= 0;
-		}
-	
-		accumChunkSize +=chunk.getSize();
-	}
-	
-	public void resetAccumChunkSize(){
-		accumChunkSize = 0;
-	}
-	
-	public int getAccumChunkSize(){
-		return accumChunkSize;
-	}
-	
-	private long generateChunkID(String fileID, int chunkNo){
-//		long chunkID = (long) fileID+chunkNo;
-		long chunkID = chunkNo;
-		return chunkID;
-	}
-	
-	public void registerListener(DTNHost host){
-		listener.put(host, -1);
-	}
-	
-	public void removeListener(DTNHost host){
-		listener.remove(host);
-	}
-		
-	public HashMap<DTNHost, Integer> getAllListener(){
-		return listener;
+		ack = chunkID;
+		buffermap.add(chunk.getChunkID());
 	}
 
-	public boolean isRegistered(DTNHost host){
-		return listener.get(host)!=null? true:false;
+	private int generateChunkID(String fileID, int chunkNo){
+		int chunkID = chunkNo;
+		return chunkID;
 	}
 	
 	public StreamChunk getChunk(double time){
 	////within boundary	
-		for(long key : streamSet.keySet()){
+		for(int key : streamSet.keySet()){
 			StreamChunk chunk = streamSet.get(key);
 			
 			double stime = chunk.getCreationTime();
-			if ((stime<=time) && time<stime+streamInterval)
+			if ((stime<=time) && time<stime+durationPerChunk)
 				return chunk;
 		}
 		return null;
 	}
 	
-	public StreamChunk getChunk(long chunkID){
+	public StreamChunk getChunk(int chunkID){
 		return streamSet.get(chunkID);
-	}
-	
-	public double getTimeLastStream(){
-		return timeLastStream;
-	}
-
-	///used by broadcaster to maintain record of what it has sent as buffermap
-	public int getLastUpdate(DTNHost host){
-		return listener.get(host);
-	}
-	
-	public void setLastUpdate(DTNHost host, int lastIndex){
-		listener.put(host, lastIndex);
-	}
-	
-	public int getNoOfChunks(){ 
-		return streamSet.size();
 	}
 
 	public Collection<StreamChunk> getChunks(){
 		return streamSet.values();
 	}
 	
-	public ArrayList<Long> getBuffermap(){
-		temp.clear();
-		for (StreamChunk c: getChunks()){
-			temp.add(c.getChunkID());
-		}
-		return temp;
+	public ArrayList<Integer> getBuffermap(){
+		return buffermap;
 	}
 	
 	public double getByterate(){
 		return byterate;
+	}
+	
+	public int getDurationPerChunk(){
+		return durationPerChunk;
+	}
+
+	
+	/*
+	 * Watcher functions
+	 */
+	public boolean isBufferReady(int id){
+		int ctr=0;
+		
+		for (int toPlay = id+1; toPlay<=streamSet.lastKey() && ctr< prebuffer/2 ; toPlay++, ctr++){
+			if (!streamSet.containsKey(toPlay)){
+				break;
+			}
+		}
+		return (ctr==(prebuffer/2)? true:false);
+	}
+	
+	public void playNext(){
+		playing = playing+1;
+	}
+	
+	public int getPlaying(){
+		return playing;
+	}
+	
+	public int getNext(){
+		return playing+1;
+	}
+	
+	public boolean isReady(int i){
+		try{
+			if(streamSet.get(i) !=null){
+				return true;
+			}
+		}
+		catch(IndexOutOfBoundsException e){}
+		return false;
+	}
+	
+	public void setAck(int curr){
+		if (curr-ack == 1 || curr == 0){
+			ack=curr;
+		}
+		while (streamSet.containsKey(ack+1)){
+			ack++;
+		}
+	}
+	
+	public int getAck(){
+		return ack;
+	}
+	
+	public void skipNext(){
+		playing++;
+	}
+	
+	public int getWindowSize(){
+		return this.windowSize;
 	}
 }
 

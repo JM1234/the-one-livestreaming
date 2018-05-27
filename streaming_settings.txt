@@ -1,31 +1,33 @@
 # This configuration file adds Streaming application for all the nodes
 
 # 43200s == 12h
-Scenario.name = debug_nofrag_noprebuffer_stableConn_50nodes
+Scenario.name = E1_100100_50nodes
 Scenario.endTime = 900
 Scenario.nrofHostGroups = 2
 
 # Define new application
-streamApp1.type = BroadcasterAppV3
+streamApp1.type = BroadcasterApp
 streamApp1.destinationRange = 0,50
 streamApp1.streamSize = 1.5M
 streamApp1.streamTime=700
 streamApp1.streamID=9999
 streamApp1.rechokeInterval=5
 streamApp1.optimisticUnchokeInterval=15
-streamApp1.waitingThreshold=7
+streamApp1.waitingThreshold=16
 streamApp1.noOfChunksPerFrag=0
+#byterate in kB
 streamApp1.byterate=150
 streamApp1.durationPerChunk=1
 
-streamApp2.type = WatcherAppV3
+streamApp2.type = WatcherApp
 streamApp2.destinationRange= 0,50
 streamApp2.streamSize=1.5M
 streamApp2.watcherType=1
 streamApp2.rechokeInterval=5
 streamApp2.optimisticUnchokeInterval=15
 streamApp2.prebuffer=0
-streamApp2.waitingThreshold=7
+streamApp2.waitingThreshold=16
+#streamApp2.maxPendingRequest=240
 
 #streamApp3.type = WatcherAppV2
 #streamApp3.destinationRange = 0,3
@@ -38,7 +40,7 @@ Group.router = TVProphetRouterV2
 TVProphetRouter.secondsInTimeUnit=1
 Group.bufferSize = 5000M
 Group.speed = 0.5, 1.5
-Group.sendQueue = PRIORITY
+Group.sendQueue = FIFO
 Group.nrofInterfaces = 1
 Group.interface1 =wifiDirectInterface
 #Group.deleteDelivered = true
@@ -46,11 +48,11 @@ Group.interface1 =wifiDirectInterface
 Group1.groupID=b
 Group1.nrofHosts=1
 Group1.application1 = streamApp1
-Group1.nodeLocation = 100,300
+#Group1.nodeLocation = 100,300
 
 Group2.groupID=w
 Group2.nrofHosts=50
-Group2.nodeLocation=130,305
+#Group2.nodeLocation=130,305
 Group2.application1=streamApp2
 
 #Group3.groupID=u
@@ -58,19 +60,19 @@ Group2.application1=streamApp2
 #Group3.nodeLocation=145,300
 #Group3.application1=streamApp3
 
-MovementModel.rngSeed = 1
-#2;3;4;5;6;7;8;9;10]
-#11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28;29;30]
+MovementModel.rngSeed = [1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28;29;30]
+#[1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28;29;30]
 MovementModel.worldSize = 100,100
 #2000,1500
 
-Report.reportDir = reports/DTNStreaming/debug/noFrag/50nodes
+Report.reportDir = reports/DTNStreaming/E1_BaseCase/
+#Experiment1/randomWaypoint/noFrag/
 #DTNStreaming/Experiment1/debug/nofrag
 #nofrag/stableConn/50nodes
 # Add report for Stream app
-Report.nrofReports = 2
+Report.nrofReports = 1
 Report.report1 = StreamAppReporter
-Report.report2 = MessageStatsReport
+#Report.report2 = MessageStatsReport
 #Report.report3 = TotalEncountersReport
 #Report.report4 = TotalContactTimeReport
 #Report.report5 = ContactTimesReport

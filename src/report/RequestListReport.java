@@ -41,7 +41,7 @@ public class RequestListReport extends Report implements ApplicationListener{
 		}
 		else if (event.equalsIgnoreCase("UPDATE")){
 			ArrayList<Long> update = (ArrayList<Long>) params;
-			nodeProps.toSearch.put(currHost, update);
+//			nodeProps.toSearch.put(currHost, update);
 			this.currHost = null;
 		}
 		nodeRecord.put(host, nodeProps);
@@ -54,9 +54,9 @@ public class RequestListReport extends Report implements ApplicationListener{
 		for (DTNHost h: nodeRecord.keySet()){
 	
 			line = h + " : " + eol;
-			for (DTNHost currH : nodeRecord.get(h).toSearch.keySet()){
-				line+= "      " + currH + " : " + nodeRecord.get(h).toSearch.get(currH) + eol;
-			}
+//			for (DTNHost currH : nodeRecord.get(h).toSearch.keySet()){
+//				line+= "      " + currH + " : " + nodeRecord.get(h).toSearch.get(currH) + eol;
+//			}
 //			System.out.println("LINE: "+ line);
 			write(line);
 		}
