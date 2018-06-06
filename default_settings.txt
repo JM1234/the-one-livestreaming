@@ -24,7 +24,7 @@ btInterface.transmitRange = 60
 
 wifiDirectInterface.type = InterferenceLimitedInterface
 wifiDirectInterface.transmitSpeed = 31250k
-wifiDirectInterface.transmitRange = 200
+wifiDirectInterface.transmitRange = 5
 
 ## Group-specific settings:
 # groupID : Group's identifier. Used as the prefix of host names

@@ -165,19 +165,25 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	public void recordPerNode(){
 		String eol = System.getProperty("line.separator");
 		String chunkRecord="";
-
+		String chunksReceived="";
 		String chunksCreated = "Total Chunks Created: " + createdChunks;
 		write(chunksCreated);
 //		
 		for (DTNHost h: nodeRecord.keySet()){
-				chunkRecord= " --------" + h + "---------->" + eol
-				 + "chunks_received: " + nodeRecord.get(h).getChunksReceived() + eol
-//				 + "unchoked_hosts: " + nodeRecord.get(h).getUnchokeList() + eol
+			chunksReceived="";
+			
+			for(int c : nodeRecord.get(h).getChunksReceived().keySet()){
+				chunksReceived = chunksReceived + c + " : " + nodeRecord.get(h).getChunksReceived().get(c) + eol;
+			}
+			
+			chunkRecord= " --------" + h + "---------->" + eol
+			 + "chunks_received: " +  chunksReceived +eol
+//				 "unchoked_hosts: " + nodeRecord.get(h).getUnchokeList() + eol
 //				 + "available_hosts: " + nodeRecord.get(h).getAvailableList() + eol
-				 + "chunk_wait_time: " + nodeRecord.get(h).getChunkWaitTime().values() + eol
-				 + "duplicate _requests: " + nodeRecord.get(h).getDuplicateRequest() + eol
-				 + "duplicate_chunks: " + nodeRecord.get(h).getDuplicateChunks() + eol
-				 + "interrupted_times: " + nodeRecord.get(h).getInterruptions();
+//				 + "chunk_wait_time: " + nodeRecord.get(h).getChunkWaitTime().values() + eol
+			 + "duplicate _requests: " + nodeRecord.get(h).getDuplicateRequest() + eol
+			 + "duplicate_chunks: " + nodeRecord.get(h).getDuplicateChunks() + eol
+			 + "interrupted_times: " + nodeRecord.get(h).getInterruptions();
 //				 + "chunks_skipped: " + nodeRecord.get(h).getChunksSkipped();
 //				 + "unchoked list: " + nodeRecord.get(h).getUnchokeList();
 ////				chunkRecord = String.format("%8s %s %8s %s %5s %s %4s %s %4s %s %4s %8s %s %8s %s %8s %s %4s %s %4s %s %4s %s %4s %s %4s %s %4s", 
@@ -191,8 +197,7 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 //						numberOfDuplicateChunksReceived, averageWaitTime, timeFirstRequested, timeFirstChunkReceived,
 //						numberOfTimesRequested, numberOfChunksRequestedAgain,  numberOfTimesAdjusted,totalIndexFragmentSent,
 //						totalTransFragmentSent,totalChunksSent, nrOfFragmentsCreated );
-				
-				write(chunkRecord);
+			write(chunkRecord);
 		}
 	
 	}

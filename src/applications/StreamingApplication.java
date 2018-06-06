@@ -36,6 +36,7 @@ public abstract class StreamingApplication extends Application{
 	
 	public static final String STREAM_ID = "streamID";
 	public static final String STREAM_NAME = "streamName";
+	public static final String STREAM_SEED = "streamSeed";
 	public static final String RECHOKE_INTERVAL = "rechokeInterval";
 	public static final String OPTIMISTIC_UNCHOKE_INTERVAL = "optimisticUnchokeInterval";
 	public static final String CHUNKS_PER_FRAG = "noOfChunksPerFrag";
@@ -60,17 +61,19 @@ public abstract class StreamingApplication extends Application{
 
 	protected static int rechokeInterval;
 	protected static int optimisticUnchokeInterval;
+	protected static int streamSeed;
 	
 //	private TreeMap<Long, Integer> chunkCount; //for rarest
 	private ArrayList<DTNHost> currConnected;
 	private ArrayList<DTNHost> tempHoldHost;
-	
+
 	public StreamingApplication(Settings s){
 
 		if(s.contains(STREAM_ID)){
 			this.streamID = s.getSetting(STREAM_ID);			
 		}
 		
+		streamSeed = s.getInt(STREAM_SEED);
 		rechokeInterval = s.getInt(RECHOKE_INTERVAL);
 		optimisticUnchokeInterval = s.getInt(OPTIMISTIC_UNCHOKE_INTERVAL);
 		

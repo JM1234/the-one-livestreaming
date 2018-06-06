@@ -226,7 +226,7 @@ public class TVProphetRouterV2 extends ActiveRouter {
 	}
 	
 	public Message getFirstMessageOnBuffer(){
-		List<Tuple<Message, Connection>> buffer = sortByWeight(getMessagesForConnected());
+		List<Tuple<Message, Connection>> buffer = sortByWeight(sortByQueueMode(getMessagesForConnected()));
 
 		if (!buffer.isEmpty()){
 			return buffer.get(0).getKey();
@@ -302,11 +302,11 @@ public class TVProphetRouterV2 extends ActiveRouter {
 		}
 
 //		 didn't start transfer to any node -> ask messages from connected
-		for (Connection con : connections) {
-			if (con.getOtherNode(getHost()).requestDeliverableMessages(con)) {
-				return con;
-			}
-		}
+//		for (Connection con : connections) {
+//			if (con.getOtherNode(getHost()).requestDeliverableMessages(con)) {
+//				return con;
+//			}
+//		}
 		return null;
 	}
 	

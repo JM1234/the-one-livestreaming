@@ -35,8 +35,8 @@ public class NodeProperties {
 	private	HashMap<Integer, Double> requested = new HashMap<Integer, Double>();
 	private ArrayList<Integer> duplicateRequest = new ArrayList<Integer>();
 	private ArrayList<Integer> duplicateChunks = new ArrayList<Integer>();
-	private HashMap<Integer, Double> interruptions = new HashMap<Integer, Double>();
-	private HashMap<Integer, Double> holdInterrupt = new HashMap<Integer, Double>();
+	private HashMap<Integer, Double> interruptions = new HashMap<Integer, Double>(); //time naglapse until umabot na ini na node
+	private HashMap<Integer, Double> holdInterrupt = new HashMap<Integer, Double>(); //time nag start an interrupt
 	
 	private int ack;
 	private int sizeAdjustedCount=0;
@@ -165,7 +165,8 @@ public class NodeProperties {
 	}
 
 	public int getNrofTimesInterrupted(){
-		return interruptions.size();
+		return holdInterrupt.size();
+//		return //interruptions.size();
 	}
 	
 	public TreeMap<Integer, Double> getChunksReceived(){

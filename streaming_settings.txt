@@ -3,7 +3,7 @@
 # 43200s == 12h
 Scenario.name = trace
 # E1_100100_50nodes
-Scenario.endTime = 900
+Scenario.endTime = 200
 Scenario.nrofHostGroups = 2
 
 # Define new application
@@ -17,6 +17,7 @@ streamApp1.optimisticUnchokeInterval=15
 streamApp1.waitingThreshold=16
 # noOfChunksPerFrag = 3 * sliding window
 streamApp1.noOfChunksPerFrag=0
+streamApp1.streamSeed = 1
 #byterate in kB
 streamApp1.byterate=150
 streamApp1.durationPerChunk=1
@@ -29,6 +30,7 @@ streamApp2.rechokeInterval=5
 streamApp2.optimisticUnchokeInterval=15
 streamApp2.prebuffer=0
 streamApp2.waitingThreshold=16
+streamApp2.streamSeed = 1
 #streamApp2.maxPendingRequest=240
 #streamApp3.type = WatcherAppV2
 #streamApp3.destinationRange = 0,3
@@ -52,7 +54,7 @@ Group1.application1 = streamApp1
 #Group1.nodeLocation = 100,300
 
 Group2.groupID=w
-Group2.nrofHosts=1
+Group2.nrofHosts=10
 #Group2.nodeLocation=130,305
 Group2.application1=streamApp2
 
@@ -61,21 +63,23 @@ Group2.application1=streamApp2
 #Group3.nodeLocation=145,300
 #Group3.application1=streamApp3
 
-MovementModel.rngSeed = [1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28;29;30]
+MovementModel.rngSeed = 1
+#[1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28;29;30]
 #[21;22;23;24;25;26;27;28;29;30]
 MovementModel.worldSize = 100,100
 #2000,2000
 #2000,1500
 
-Report.reportDir = reports/DTNStreaming/
+Report.reportDir = reports/DTNStreaming/debugRevReport/
 #E1/100x100_50nodes/
 #E1_BaseCase/500500_50nodes/
 #E1_BaseCase/10001000_50nodes/
 #E2_WithFrag/
 # Add report for Stream app
-Report.nrofReports = 2
+Report.nrofReports = 3
 Report.report1 = StreamAppReporter
 Report.report2 = MessageStatsReport
+Report.report3 = EventLogReport
 #Report.report3 = TotalEncountersReport
 #Report.report4 = TotalContactTimeReport
 #Report.report5 = ContactTimesReport

@@ -56,7 +56,7 @@ public class BroadcasterApp extends StreamingApplication {
 			windowSize = s.getInt(WINDOW_SIZE); //playbackdelay*consumptionrate/chunk size
 		
 		sTime = 0;	//s.getDouble("streamTime") * r.nextDouble(); //time to start broadcasting
-		r = new Random();
+		r = new Random(streamSeed);
 		initUnchoke();
 	}
 
@@ -73,7 +73,7 @@ public class BroadcasterApp extends StreamingApplication {
 		prevUnchoked = new ArrayList<DTNHost>();
 		
 		sTime = a.getSTime();
-		r = new Random();
+		r = new Random(streamSeed);
 		initUnchoke();
 	}
 
@@ -118,6 +118,7 @@ public class BroadcasterApp extends StreamingApplication {
 //				else{
 //					evaluateToSend(host, msg);
 //				}
+				grantRequest(host);
 			}
 			else if (msg_type.equalsIgnoreCase(BROADCAST_BUNDLED_REQUEST)){
 //				System.out.println(" received broadcast bundled");
@@ -130,6 +131,7 @@ public class BroadcasterApp extends StreamingApplication {
 					receivedRequests.put(msg.getFrom(), bundledR);
 				}
 //				System.out.println(" Bundled received requests: " + receivedRequests.values());
+				grantRequest(host);
 			}
 			
 			else if (msg_type.equals(INTERESTED)){
@@ -175,18 +177,18 @@ public class BroadcasterApp extends StreamingApplication {
 		checkHelloedConnection(host); //remove data of disconnected nodes
 //		grantRequests(host);
 		
-		Iterator<Map.Entry<DTNHost, ArrayList<Integer>>> it = receivedRequests.entrySet().iterator();
-		while(it.hasNext()){
-			DTNHost to = it.next().getKey();
-			
-			if (noOfChunksPerFrag>0){
-				evaluateToSend(host, to);
-			}
-			else{
-				sendWithoutFrag(host, to);
-			}
-			it.remove();
-		}
+//		Iterator<Map.Entry<DTNHost, ArrayList<Integer>>> it = receivedRequests.entrySet().iterator();
+//		while(it.hasNext()){
+//			DTNHost to = it.next().getKey();
+//			
+//			if (noOfChunksPerFrag>0){
+//				evaluateToSend(host, to);
+//			}
+//			else{
+//				sendWithoutFrag(host, to);
+//			}
+//			it.remove();
+//		}
 		
 		if (broadcasted){
 			//generate chunks here
@@ -224,6 +226,21 @@ public class BroadcasterApp extends StreamingApplication {
 		
 	}
 	
+	private void grantRequest(DTNHost host){
+		Iterator<Map.Entry<DTNHost, ArrayList<Integer>>> it = receivedRequests.entrySet().iterator();
+		
+		while(it.hasNext()){
+			DTNHost to = it.next().getKey();
+			
+			if (noOfChunksPerFrag>0){
+				evaluateToSend(host, to);
+			}
+			else{
+				sendWithoutFrag(host, to);
+			}
+			it.remove();
+		}
+	}
 //	private void grantIndivRequests(DTNHost host) {
 //
 //		for(DTNHost to : receivedRequests.keySet()){
@@ -245,7 +262,6 @@ public class BroadcasterApp extends StreamingApplication {
 		int rChunk;
 		int currFrag;
 		
-//		System.out.println(" @@@@@request size: " + request.size());
 		while(!request.isEmpty()){
 			rChunk = request.get(0);
 			currFrag = stream.getChunk(rChunk).getFragmentIndex();

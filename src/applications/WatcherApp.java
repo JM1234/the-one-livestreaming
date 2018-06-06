@@ -72,7 +72,7 @@ public class WatcherApp extends StreamingApplication{
 		availableNeighbors = new ArrayList<DTNHost>();
 		
 		sadf = new SADFragmentation();
-		r = new Random();
+		r = new Random(streamSeed);
 		initUnchoke();
 	}
 	
@@ -82,6 +82,7 @@ public class WatcherApp extends StreamingApplication{
 		watcherType = a.getWatcherType();
 		waitingThreshold = a.getWaitingThreshold();
 		prebuffer = a.getPrebuffer();
+		r = new Random (a.getStreamSeed());
 		
 		holdHost = new ArrayList<DTNHost>();
 		prevUnchoked = new ArrayList<DTNHost>();
@@ -92,9 +93,14 @@ public class WatcherApp extends StreamingApplication{
 		availableNeighbors = new ArrayList<DTNHost>();
 	
 		sadf = new SADFragmentation();
-		r = new Random();
+//		r = new Random(streamSeed);
+		
 		initUnchoke();
 
+	}
+
+	private int getStreamSeed() {
+		return streamSeed;
 	}
 
 	@Override
@@ -222,6 +228,7 @@ public class WatcherApp extends StreamingApplication{
 //				else{
 //					evaluateToSend(host, msg);
 //				}
+				grantRequests(host);
 			}
 			else if (msg_type.equalsIgnoreCase(BROADCAST_BUNDLED_REQUEST)){
 //				System.out.println(" received broadcast bundled");
@@ -234,6 +241,7 @@ public class WatcherApp extends StreamingApplication{
 					receivedRequests.put(msg.getFrom(), bundledR);
 				}
 //				System.out.println(" Bundled received requests: " + receivedRequests.values());
+				grantRequests(host);
 			}
 			
 			else if (msg_type.equals(INTERESTED)){ 	//evaluate response if choke or unchoke
@@ -467,6 +475,56 @@ public class WatcherApp extends StreamingApplication{
 		timeToAskNew(host);
 //		grantRequests(host);
 		
+//		Iterator<Map.Entry<DTNHost, ArrayList<Integer>>> it = receivedRequests.entrySet().iterator();
+//		while(it.hasNext()){
+//			DTNHost to = it.next().getKey();
+//			
+//			if (sadf.getNoOfChunksPerFrag()>0){
+//				evaluateToSend(host, to);
+//			}
+//			else{
+//				sendWithoutFrag(host, to);
+//			}
+//			it.remove();
+//		}
+		
+		if (curTime-lastChokeInterval >= rechokeInterval){
+			updateUnchoke(curTime, host);
+		}
+		
+		try{
+			if (isWatching && (curTime-this.lastTimePlayed >= stream.getDurationPerChunk()) && curTime>=streamStartTime){
+				
+//				if (prebuffer>0 && stream.isBufferReady(stream.getNext()) && !stream.isReady(stream.getNext())){
+//					sendEventToListeners(StreamAppReporter.SKIPPED_CHUNK, stream.getNext(), host);
+//					System.out.println(host + " skipped chunk: " + stream.getNext());
+//					stream.skipNext();
+//				}
+				if(stream.isReady(stream.getNext())){
+					stream.playNext();
+					this.lastTimePlayed = curTime;
+					sendEventToListeners(StreamAppReporter.LAST_PLAYED, stream.getPlaying(), host);
+//					System.out.println(host + " playing: " + stream.getPlaying());
+
+					if (status==WAITING){
+						System.out.println(host + "playing resumed..." + stream.getPlaying() + " TIME: " + SimClock.getTime());
+						sendEventToListeners(StreamAppReporter.RESUMED, stream.getPlaying(), host);
+					}
+					status = PLAYING;
+				}
+				else if (status==PLAYING){
+					//hope for the best na aaruon utro ini na missing
+					status = WAITING;
+					sendEventToListeners(StreamAppReporter.INTERRUPTED, stream.getNext(), host);
+					System.out.println(host+ " stalled: " + stream.getNext() + "TIME: " + SimClock.getTime());
+				}
+			}
+		}catch(NullPointerException e){
+		}catch(ArrayIndexOutOfBoundsException i){ }
+	
+	}
+	
+	private void grantRequests(DTNHost host){
 		Iterator<Map.Entry<DTNHost, ArrayList<Integer>>> it = receivedRequests.entrySet().iterator();
 		while(it.hasNext()){
 			DTNHost to = it.next().getKey();
@@ -479,43 +537,7 @@ public class WatcherApp extends StreamingApplication{
 			}
 			it.remove();
 		}
-		
-		if (curTime-lastChokeInterval >= rechokeInterval){
-			updateUnchoke(curTime, host);
-		}
-		
-		try{
-			if (isWatching && (curTime-this.lastTimePlayed >= stream.getDurationPerChunk()) && curTime>=streamStartTime){
-				
-				if (prebuffer>0 && stream.isBufferReady(stream.getNext()) && !stream.isReady(stream.getNext())){
-					sendEventToListeners(StreamAppReporter.SKIPPED_CHUNK, stream.getNext(), host);
-//					System.out.println(host + " skipped chunk: " + props.getNext());
-					stream.skipNext();
-				}
-
-				if(stream.isReady(stream.getNext())){
-					stream.playNext();
-					this.lastTimePlayed = curTime;
-					sendEventToListeners(StreamAppReporter.LAST_PLAYED, stream.getPlaying(), host);
-//					System.out.println(host + " playing: " + stream.getPlaying());
-
-					if (status==WAITING){
-						sendEventToListeners(StreamAppReporter.RESUMED, stream.getPlaying(), host);
-					}
-					status = PLAYING;
-				}
-				else if (status==PLAYING){
-					//hope for the best na aaruon utro ini na missing
-					status = WAITING;
-					sendEventToListeners(StreamAppReporter.INTERRUPTED, stream.getNext(), host);
-//					System.out.println(host+ " waiting: " + props.getNext());
-				}
-			}
-		}catch(NullPointerException e){
-		}catch(ArrayIndexOutOfBoundsException i){ }
-	
 	}
-	
 	
 	private void grantIndivRequests(DTNHost host) {
 
@@ -580,13 +602,16 @@ public class WatcherApp extends StreamingApplication{
 		Collections.sort(availableNeighbors, StreamingApplication.BandwidthComparator);
 	
 		int surplus = stream.getAck()-stream.getPlaying();
-		int maxRequestPerNode = surplus/availableNeighbors.size();
-		if (maxRequestPerNode==0) maxRequestPerNode=1;
+//		System.out.println(" surplus: " + surplus);
+		//maxRequestPerNode = surplus * beta
+		int maxRequestPerNode = (2*surplus)/availableNeighbors.size();
+		if (maxRequestPerNode<=0) maxRequestPerNode=1;
+//		int maxRequestPerNode = 1;
+//		System.out.println(" Max request per node: " + maxRequestPerNode);
 		
-		
-		Iterator<DTNHost> iterator = availableNeighbors.iterator();
-			
+		Iterator<DTNHost> iterator = availableNeighbors.iterator();	
 		while (iterator.hasNext()){
+//			System.out.println(" iterated ++ ");
 			DTNHost to = iterator.next();
 			
 			if (chunkRequest.size() > maxPendingRequest) break;
@@ -604,9 +629,11 @@ public class WatcherApp extends StreamingApplication{
 		
 			if (maxRequestPerNode>1 && sadf.getNoOfChunksPerFrag()>0){
 				requestBundle(host, to, maxRequestPerNode);
+//				System.out.println("@ request bundle" + to);
 			}
 			else{
 				requestChunk(host, to);
+//				System.out.println("@ request chunks "+ to);
 			}
 		}
 	}
@@ -646,7 +673,7 @@ public class WatcherApp extends StreamingApplication{
 //		}
 //	}
 	
-	public void requestBundle(DTNHost host, DTNHost to, int maxRequestPerNode){
+	public void requestBundle(DTNHost host, DTNHost to, int maxRequestPerNode){ //window size
 		ArrayList<Integer> toRequest = new ArrayList<Integer>();
 		
 		double expiry = -1;
@@ -682,6 +709,7 @@ public class WatcherApp extends StreamingApplication{
 		
 		double expiry = -1;
 		for (int chunkId : holdChunk){
+//			System.out.println(" requestchunk ++");
 			if (chunkId>windowEnd || chunkRequest.size()>maxPendingRequest) break;
 			
 			if (chunkId >=windowStart && chunkId<=windowEnd){
