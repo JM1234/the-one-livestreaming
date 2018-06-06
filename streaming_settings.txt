@@ -1,7 +1,8 @@
 # This configuration file adds Streaming application for all the nodes
 
 # 43200s == 12h
-Scenario.name = E1_100100_50nodes
+Scenario.name = trace
+# E1_100100_50nodes
 Scenario.endTime = 900
 Scenario.nrofHostGroups = 2
 
@@ -51,7 +52,7 @@ Group1.application1 = streamApp1
 #Group1.nodeLocation = 100,300
 
 Group2.groupID=w
-Group2.nrofHosts=50
+Group2.nrofHosts=1
 #Group2.nodeLocation=130,305
 Group2.application1=streamApp2
 
@@ -66,7 +67,8 @@ MovementModel.worldSize = 100,100
 #2000,2000
 #2000,1500
 
-Report.reportDir = reports/DTNStreaming_Final/E1/100x100_50nodes/
+Report.reportDir = reports/DTNStreaming/
+#E1/100x100_50nodes/
 #E1_BaseCase/500500_50nodes/
 #E1_BaseCase/10001000_50nodes/
 #E2_WithFrag/

@@ -210,7 +210,8 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	public void done(){
 		WriteExcel test = new WriteExcel();
 	
-		excelDir = "/home/jejejanz/janeil_workspace/the-one-livestreaming/" + getReportDir() + getScenarioName() + ".xls";
+		//excelDir = "/home/jejejanz/janeil_workspace/the-one-livestreaming/" + getReportDir() + getScenarioName() + ".xls";
+		excelDir = "C:/Users/janz/git/the-one-livestreaming/" + getReportDir() + getScenarioName() + ".xls";
 		
 		System.out.println(" excelDir: " + excelDir);
 		test.setOutputFile(excelDir);
