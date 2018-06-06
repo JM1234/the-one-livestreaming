@@ -19,7 +19,7 @@ public class NodeProperties {
 	private double timeFirstRequested=-1;
 	private double timeFirstChunkReceived=-1;
 	private int lastChunkPlayed=-1;
-	private double nrofTimesInterrupted=0;
+//	private double nrofTimesInterrupted=0;
 //	private int nrofDuplicateChunks=0;
 //	private int nrofDuplicateRequest=0;
 	private int nrofTimesRequested=0;
@@ -35,6 +35,8 @@ public class NodeProperties {
 	private	HashMap<Integer, Double> requested = new HashMap<Integer, Double>();
 	private ArrayList<Integer> duplicateRequest = new ArrayList<Integer>();
 	private ArrayList<Integer> duplicateChunks = new ArrayList<Integer>();
+	private HashMap<Integer, Double> interruptions = new HashMap<Integer, Double>();
+	private HashMap<Integer, Double> holdInterrupt = new HashMap<Integer, Double>();
 	
 	private int ack;
 	private int sizeAdjustedCount=0;
@@ -102,10 +104,26 @@ public class NodeProperties {
 //		this.nrofDuplicateRequest=nrofDuplicateRequest;
 //	}
 	
-	public void setNrofTimesInterrupted(double nrofTimesInterrupted){
-		this.nrofTimesInterrupted=nrofTimesInterrupted;
-	}
+//	public void setNrofTimesInterrupted(double nrofTimesInterrupted){
+//		this.nrofTimesInterrupted=nrofTimesInterrupted;
+//	}
 
+	public void addInterruption(int chunkId, double time){
+		holdInterrupt.put(chunkId, time);
+	}
+	
+	public void addResumed(int chunkId, double time){
+		interruptions.put(chunkId, time);
+	}
+	
+	public double getStored(int chunkId){
+		return holdInterrupt.get(chunkId);
+	}
+	
+	public HashMap<Integer, Double> getInterruptions(){
+		return interruptions;
+	}
+	
 	public double getTimeBroadcastReceived(){
 		return timeBroadcastReceived;
 	}
@@ -146,8 +164,8 @@ public class NodeProperties {
 		return duplicateRequest;
 	}
 
-	public double getNrofTimesInterrupted(){
-		return nrofTimesInterrupted;
+	public int getNrofTimesInterrupted(){
+		return interruptions.size();
 	}
 	
 	public TreeMap<Integer, Double> getChunksReceived(){
@@ -252,5 +270,16 @@ public class NodeProperties {
 	
 	public int getNrOfSkippedChunks(){
 		return chunksSkipped.size();
+	}
+	
+	public double getAveLengthOfInterruption(){
+		if (interruptions.size()==0) return 0;
+		
+		double ave=0;
+		for (double lapse : interruptions.values()){
+			ave+=lapse;
+		}
+		ave/=interruptions.size();
+		return ave;
 	}
 }

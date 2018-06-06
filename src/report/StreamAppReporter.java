@@ -34,6 +34,7 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	public static final String STARTED_PLAYING = "startedPlaying";
 	public static final String LAST_PLAYED = "lastPlayed";
 	public static final String INTERRUPTED = "interrupted";
+	public static final String RESUMED = "resumed";
 	public static final String RECEIVED_CHUNK = "receivedChunk";
 	public static final String RECEIVED_DUPLICATE = "receivedDuplicate";
 	public static final String FIRST_TIME_REQUESTED = "firstTimeRequest";
@@ -41,6 +42,7 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	public static final String BROADCAST_RECEIVED = "broadcastReceived";
 	public static final String RESENT_REQUEST = "resentRequest";
 	public static final String SENT_REQUEST = "sentRequest";
+	public static final String SENT_BUNDLE_REQUEST = "sentBundleRequest";
 	public static final String UNCHOKED = "unchoked";
 	public static final String INTERESTED = "interested";
 	public static final String CHUNK_CREATED = "chunkCreated";
@@ -80,11 +82,15 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 				nodeProps.setTimeStartedPlaying(SimClock.getTime());
 			}
 			nodeProps.setTimeLastPlayed(SimClock.getTime(), id);
-			
 		}
 		else if (event.equalsIgnoreCase(INTERRUPTED)){
-			double ctr = nodeProps.getNrofTimesInterrupted()+1;
-			nodeProps.setNrofTimesInterrupted(ctr);
+			int chunkId = (int) params;
+			nodeProps.addInterruption(chunkId, SimClock.getTime());
+		}
+		else if (event.equalsIgnoreCase(RESUMED)){
+			int chunkId = (int) params;
+			double lapse = SimClock.getTime() - nodeProps.getStored(chunkId);
+			nodeProps.addResumed(chunkId, lapse);
 		}
 		else if (event.equalsIgnoreCase(RECEIVED_CHUNK)){
 			int id = (int) params;
@@ -109,6 +115,13 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 			int id = (int) params;
 			nodeProps.addRequested(id);
 			nodeProps.setNrofTimesRequested(ctr);
+		}
+		
+		else if (event.equalsIgnoreCase(SENT_BUNDLE_REQUEST)){
+			ArrayList<Integer> received = (ArrayList<Integer>) params;
+			for(int c:received){
+				nodeProps.addRequested(c);
+			}
 		}
 //		else if (event.equalsIgnoreCase(UNCHOKED)){
 //			ArrayList<DTNHost> unchokedH = (ArrayList<DTNHost>) params;
@@ -157,13 +170,14 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 		write(chunksCreated);
 //		
 		for (DTNHost h: nodeRecord.keySet()){
-				chunkRecord= " --------" + h + "---------->" + eol 
-				 + "chunks_received: " + nodeRecord.get(h).getChunksReceived().keySet() + eol
+				chunkRecord= " --------" + h + "---------->" + eol
+				 + "chunks_received: " + nodeRecord.get(h).getChunksReceived() + eol
 //				 + "unchoked_hosts: " + nodeRecord.get(h).getUnchokeList() + eol
 //				 + "available_hosts: " + nodeRecord.get(h).getAvailableList() + eol
 				 + "chunk_wait_time: " + nodeRecord.get(h).getChunkWaitTime().values() + eol
 				 + "duplicate _requests: " + nodeRecord.get(h).getDuplicateRequest() + eol
-				 + "duplicate_chunks: " + nodeRecord.get(h).getDuplicateChunks();
+				 + "duplicate_chunks: " + nodeRecord.get(h).getDuplicateChunks() + eol
+				 + "interrupted_times: " + nodeRecord.get(h).getInterruptions();
 //				 + "chunks_skipped: " + nodeRecord.get(h).getChunksSkipped();
 //				 + "unchoked list: " + nodeRecord.get(h).getUnchokeList();
 ////				chunkRecord = String.format("%8s %s %8s %s %5s %s %4s %s %4s %s %4s %8s %s %8s %s %8s %s %4s %s %4s %s %4s %s %4s %s %4s %s %4s", 

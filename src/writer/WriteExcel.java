@@ -100,7 +100,7 @@ public class WriteExcel {
             throws WriteException {
     	  
        String[] header = {"HostName", "AverageWaitTime", "TimeFirstRequested","TimeFirstChunkReceived", "TimeStartedPlaying", "TimeLastPlayed", "ChunkLastPlayed",
-        		"ACK", "LastChunkReceived", "#ofTimesInterrupted", "#ofChunksSkipped" , "TotalChunksReceived", "#ofDuplicateChunksReceived", "#ofTimesRequested", "#ofDuplicateRequest", 
+        		"ACK", "LastChunkReceived", "#ofTimesInterrupted", "AveLengthOfInterruption", "#ofChunksSkipped" , "TotalChunksReceived", "#ofDuplicateChunksReceived", "#ofTimesRequested", "#ofDuplicateRequest", 
         		"#ofFragmentsCreated (IndexLevel)", "TotalIndexFragmentSent", "TotalTransFragmentSent", "TotalChunksSent", "#ofTimesAdjusted", "SeedNo."};
         // Write a few headers
         for(int i=0; i<header.length; i++){
@@ -148,19 +148,20 @@ public class WriteExcel {
         	addInteger(sheet, 6, row, nProps.getLastPlayedChunk());
         	addLong(sheet, 7, row, nProps.getAck());
         	addLong(sheet, 8, row, nProps.getLastChunkReceived());
-           	addDouble(sheet, 9, row, nProps.getNrofTimesInterrupted()/100);
-           	addInteger(sheet, 10, row, nProps.getNrOfSkippedChunks());
-        	addInteger(sheet, 11, row, nProps.getNrofChunksReceived());
-        	addInteger(sheet, 12, row, nProps.getNrofDuplicateChunks());
-        	addInteger(sheet, 13, row, nProps.getNrofTimesRequested());
-        	addInteger(sheet, 14, row, nProps.getNrofDuplicateRequest());
-        	addInteger(sheet, 15, row, nProps.getNrOfFragmentsCreated());
-        	addInteger(sheet, 16, row, nProps.getNrOfTimesSentIndex());
-        	addInteger(sheet, 17, row, nProps.getNrofTimesSentTrans());
-        	addInteger(sheet, 18, row, nProps.getNrOfTimesSentChunk());
-        	addInteger(sheet, 19, row, nProps.getSizeAdjustedCount());
+           	addInteger(sheet, 9, row, nProps.getNrofTimesInterrupted());
+           	addDouble(sheet, 10, row, nProps.getAveLengthOfInterruption());
+           	addInteger(sheet, 11, row, nProps.getNrOfSkippedChunks());
+        	addInteger(sheet, 12, row, nProps.getNrofChunksReceived());
+        	addInteger(sheet, 13, row, nProps.getNrofDuplicateChunks());
+        	addInteger(sheet, 14, row, nProps.getNrofTimesRequested());
+        	addInteger(sheet, 15, row, nProps.getNrofDuplicateRequest());
+        	addInteger(sheet, 16, row, nProps.getNrOfFragmentsCreated());
+        	addInteger(sheet, 17, row, nProps.getNrOfTimesSentIndex());
+        	addInteger(sheet, 18, row, nProps.getNrofTimesSentTrans());
+        	addInteger(sheet, 19, row, nProps.getNrOfTimesSentChunk());
+        	addInteger(sheet, 20, row, nProps.getSizeAdjustedCount());
         	//overhead pa for decoding buffermap and encoding fragments
-        	addInteger(sheet, 20, row, seed);
+        	addInteger(sheet, 21, row, seed);
         	row++;
         }
     }

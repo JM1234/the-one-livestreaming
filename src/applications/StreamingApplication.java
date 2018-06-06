@@ -32,6 +32,7 @@ public abstract class StreamingApplication extends Application{
 	public static final String UNINTERESTED = "UNINTERESTED";
 	public static final String CHOKE = "CHOKED";
 	public static final String UNCHOKE = "UNCHOKED";
+	public static final String BROADCAST_BUNDLED_REQUEST = "BROADCAST_BUNDLED_REQUEST";
 	
 	public static final String STREAM_ID = "streamID";
 	public static final String STREAM_NAME = "streamName";
@@ -53,7 +54,10 @@ public abstract class StreamingApplication extends Application{
 	protected HashMap<DTNHost, ArrayList<Integer>> helloSent; //nodes we sent hello to
 	protected ArrayList<DTNHost> interestedNeighbors; //nodes that can request from us
 	protected ArrayList<DTNHost> unchoked; //nodes that we unchoked
-	
+	///////////////remove data of this when host is gone
+	protected HashMap<DTNHost, ArrayList<Integer>> receivedRequests;
+	protected HashMap<DTNHost, Integer> surplus;
+
 	protected static int rechokeInterval;
 	protected static int optimisticUnchokeInterval;
 	
@@ -73,6 +77,8 @@ public abstract class StreamingApplication extends Application{
 		helloSent = new HashMap<DTNHost, ArrayList<Integer>>();
 		interestedNeighbors = new ArrayList<DTNHost>();
 		unchoked = new ArrayList<DTNHost>(4);
+		receivedRequests = new HashMap<DTNHost, ArrayList<Integer>>();
+		surplus = new HashMap<DTNHost, Integer>();
 		
 		currConnected= new ArrayList<DTNHost>();
 		tempHoldHost = new ArrayList<DTNHost>();
@@ -90,7 +96,9 @@ public abstract class StreamingApplication extends Application{
 		helloSent = new HashMap<DTNHost, ArrayList<Integer>>();
 		interestedNeighbors = new ArrayList<DTNHost>();
 		unchoked = new ArrayList<DTNHost>(4);
-	
+		receivedRequests = new HashMap<DTNHost, ArrayList<Integer>>();
+		surplus = new HashMap<DTNHost, Integer>();
+		
 		currConnected= new ArrayList<DTNHost>();
 		tempHoldHost = new ArrayList<DTNHost>();
 
@@ -148,6 +156,8 @@ public abstract class StreamingApplication extends Application{
 			interestedNeighbors.remove(dtnHost); //if it sent an interested message, remove it from the list of interested
 			updateUnchoked(unchoked.indexOf(dtnHost), null); //if it is included among the current list of unchoked  -----------------------feeling ko may something wrong ini
 			helloSent.remove(dtnHost);
+			receivedRequests.remove(dtnHost);
+			surplus.remove(dtnHost);
 	    }	
 	    return tempHoldHost;
 	}
