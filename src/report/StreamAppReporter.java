@@ -163,6 +163,7 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	}
 
 	public void recordPerNode(){
+		
 		String eol = System.getProperty("line.separator");
 		String chunkRecord="";
 		String chunksReceived="";
@@ -170,6 +171,8 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 		write(chunksCreated);
 //		
 		for (DTNHost h: nodeRecord.keySet()){
+			nodeRecord.get(h).finalizeInterruption();
+			
 			chunksReceived="";
 			
 			for(int c : nodeRecord.get(h).getChunksReceived().keySet()){
@@ -213,6 +216,7 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 	}
 	
 	public void done(){
+		recordPerNode();
 		WriteExcel test = new WriteExcel();
 	
 		//excelDir = "/home/jejejanz/janeil_workspace/the-one-livestreaming/" + getReportDir() + getScenarioName() + ".xls";
@@ -233,9 +237,8 @@ public class StreamAppReporter extends Report implements ApplicationListener{
 			e.printStackTrace();
 		}
 		
-		recordPerNode();
-		super.done();
 		nodeRecord.clear();
+		super.done();
 	}
 	
 	public double round(double value) {

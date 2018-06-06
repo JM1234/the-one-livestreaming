@@ -117,6 +117,7 @@ public class WatcherApp extends StreamingApplication{
 					isWatching=true;
 					status = WAITING;
 					sendEventToListeners(StreamAppReporter.INTERRUPTED, 0, host);
+					System.out.println(host + "stalled: " + 0 + "TIME: " + SimClock.getTime());
 					
 					String streamID=(String) msg.getProperty("streamID");
 					double timeStarted = (double) msg.getProperty("time_started");
@@ -131,7 +132,8 @@ public class WatcherApp extends StreamingApplication{
 					sadf = new SADFragmentation();
 					sadf.setNoOfChunksPerFrag(noOfChunksPerFrag);					
 
-					streamStartTime = SimClock.getTime() +prebuffer;
+					streamStartTime = SimClock.getTime() + prebuffer;
+					
 				}
 				
 				//for uninterested watcher, just save

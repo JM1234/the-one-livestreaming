@@ -283,4 +283,12 @@ public class NodeProperties {
 		ave/=interruptions.size();
 		return ave;
 	}
+	
+	public void finalizeInterruption(){
+		for (int c: holdInterrupt.keySet()){
+			if (!interruptions.containsKey(c)){
+				interruptions.put(c, SimClock.getTime()-holdInterrupt.get(c));
+			}
+		}
+	}
 }

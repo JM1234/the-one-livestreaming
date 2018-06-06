@@ -1,7 +1,7 @@
 # This configuration file adds Streaming application for all the nodes
 
 # 43200s == 12h
-Scenario.name = trace
+Scenario.name = traceable
 # E1_100100_50nodes
 Scenario.endTime = 200
 Scenario.nrofHostGroups = 2
@@ -16,7 +16,7 @@ streamApp1.rechokeInterval=5
 streamApp1.optimisticUnchokeInterval=15
 streamApp1.waitingThreshold=16
 # noOfChunksPerFrag = 3 * sliding window
-streamApp1.noOfChunksPerFrag=0
+streamApp1.noOfChunksPerFrag=10
 streamApp1.streamSeed = 1
 #byterate in kB
 streamApp1.byterate=150
@@ -66,11 +66,12 @@ Group2.application1=streamApp2
 MovementModel.rngSeed = 1
 #[1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28;29;30]
 #[21;22;23;24;25;26;27;28;29;30]
-MovementModel.worldSize = 100,100
+MovementModel.worldSize = 75,75
 #2000,2000
 #2000,1500
 
-Report.reportDir = reports/DTNStreaming/debugRevReport/
+Report.reportDir = reports/DTNStreaming/revised/
+#debugRevReport/
 #E1/100x100_50nodes/
 #E1_BaseCase/500500_50nodes/
 #E1_BaseCase/10001000_50nodes/
